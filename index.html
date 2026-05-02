@@ -725,9 +725,16 @@
     const from = document.getElementById('filter-from').value;
     const to = document.getElementById('filter-to').value;
 
+    if (!from || !to) {
+      document.getElementById('records-body').innerHTML =
+        '<tr><td colspan="7" id="empty-msg">開始日と終了日を指定してください</td></tr>';
+      records = [];
+      renderSummary([]);
+      return;
+    }
+
     let query = sb.from(TABLE).select('*').order('date', { ascending: true });
-    if (from) query = query.gte('date', from);
-    if (to)   query = query.lte('date', to);
+    query = query.gte('date', from).lte('date', to);
 
     const { data, error } = await query;
     if (error) { showToast('取得失敗: ' + error.message, true); return; }
@@ -845,7 +852,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const from = document.getElementById('filter-from').value;
-    const issuerName = document.getElementById('inv-issuer').value.trim() || 'kintai';
+    const issuerName = document.getElementById('inv-issuer').value.trim().replace(/[ 　]/g, '') || 'kintai';
     let dateLabel = '';
     if (from) {
       const d = new Date(from);
