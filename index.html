@@ -497,7 +497,7 @@
       </div>
       <div class="form-group full">
         <label for="inv-note">備考</label>
-        <textarea id="inv-note" placeholder="例）いつもお世話になっております。来月度もよろしくお願いいたします。" style="min-height:60px"></textarea>
+        <textarea id="inv-note" placeholder="例）いつもお世話になっております。来月度もよろしくお願いいたします。&#10;なお、振込手数料は貴社にてご負担いただけますと幸いです。" style="min-height:60px"></textarea>
       </div>
     </div>
 
@@ -831,10 +831,14 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const from = document.getElementById('filter-from').value;
-    const to = document.getElementById('filter-to').value;
-    const suffix = (from || to) ? `_${from || ''}~${to || ''}` : '';
+    const issuerName = document.getElementById('inv-issuer').value.trim() || 'kintai';
+    let dateLabel = '';
+    if (from) {
+      const d = new Date(from);
+      dateLabel = `${d.getFullYear()}年${d.getMonth()+1}月分`;
+    }
     a.href = url;
-    a.download = `kintai${suffix}.csv`;
+    a.download = `${issuerName}_${dateLabel}勤怠データ.csv`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('CSVをエクスポートしました');
@@ -1433,6 +1437,9 @@
     const fromAddr = [zip ? `〒${h(zip)}` : '', h(address)].filter(Boolean).join('　');
     const bankLine = [h(bank), h(branch), branchNo?`（${h(branchNo)}）`:'', h(accountType), h(accountNo), h(accountName)].filter(Boolean).join('　');
 
+    const _fromDate = from ? new Date(from) : new Date(invDate || Date.now());
+    const _pdfTitle = `【${issuer}】${_fromDate.getFullYear()}年${_fromDate.getMonth()+1}月分御請求書_${client}御中`;
+
     const extraRows = (extraItems || []).map((item, i) => `
       <tr>
         <td>${h(item.name) || `品目${i + 2}`}</td>
@@ -1570,7 +1577,7 @@
   <div class="inv-notes">
     <div class="inv-note-sec">
       <h3>備考</h3>
-      <p>${h(note || 'いつもお世話になっております。\n来月度もよろしくお願いいたします。')}</p>
+      <p>${h(note || 'いつもお世話になっております。\n来月度もよろしくお願いいたします。\nなお、振込手数料は貴社にてご負担いただけますと幸いです。')}</p>
     </div>
     <div class="inv-note-sec">
       <h3>振込先</h3>
@@ -1582,6 +1589,7 @@
 
 <script>
 function dlPDF(){
+  document.title = ${JSON.stringify(_pdfTitle)};
   window.print();
 }
 <\/script>
