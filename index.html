@@ -1457,6 +1457,7 @@
 <head>
 <meta charset="UTF-8">
 <title>${h(_pdfTitle)}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Meiryo','メイリオ','Hiragino Kaku Gothic Pro',sans-serif;background:#fff;color:#333;font-size:14px;line-height:1.75;letter-spacing:0.05em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -1589,8 +1590,24 @@
 </div>
 
 <script>
-function dlPDF(){
-  window.print();
+async function dlPDF() {
+  const el = document.getElementById('inv-outer');
+  const btns = document.querySelectorAll('.tb-pdf');
+  btns.forEach(b => { b.disabled = true; b.textContent = '生成中…'; });
+  const prevMargin = el.style.margin;
+  el.style.margin = '0 auto';
+  try {
+    await html2pdf().set({
+      margin: 0,
+      filename: ${JSON.stringify(_pdfTitle + '.pdf')},
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, windowWidth: 794 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(el).save();
+  } finally {
+    el.style.margin = prevMargin;
+    btns.forEach(b => { b.disabled = false; b.textContent = 'PDFダウンロード'; });
+  }
 }
 <\/script>
 <div class="toolbar" style="margin-top:24px">
