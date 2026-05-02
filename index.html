@@ -670,7 +670,9 @@
     if (!s || !e) { el.textContent = '–'; return; }
     const [sh, sm] = s.split(':').map(Number);
     const [eh, em] = e.split(':').map(Number);
-    let total = (eh * 60 + em) - (sh * 60 + sm) - b;
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff < 0) diff += 24 * 60;
+    let total = diff - b;
     if (total < 0) total = 0;
     el.textContent = formatMin(total);
   }
@@ -688,7 +690,9 @@
     }
     const [sh, sm] = start_time.split(':').map(Number);
     const [eh, em] = end_time.split(':').map(Number);
-    let work_min = (eh * 60 + em) - (sh * 60 + sm) - break_min;
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff < 0) diff += 24 * 60;
+    let work_min = diff - break_min;
     if (work_min < 0) work_min = 0;
 
     btn.disabled = true;
@@ -764,7 +768,9 @@
     if (start && end) {
       const [sh, sm] = start.split(':').map(Number);
       const [eh, em] = end.split(':').map(Number);
-      workMin = (eh * 60 + em) - (sh * 60 + sm) - breakMin;
+      let diff = (eh * 60 + em) - (sh * 60 + sm);
+      if (diff < 0) diff += 24 * 60;
+      workMin = diff - breakMin;
       if (workMin < 0) workMin = 0;
     }
 
