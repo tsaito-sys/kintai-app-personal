@@ -1438,7 +1438,8 @@
     const bankLine = [h(bank), h(branch), branchNo?`（${h(branchNo)}）`:'', h(accountType), h(accountNo), h(accountName)].filter(Boolean).join('　');
 
     const _fromDate = from ? new Date(from) : new Date(invDate || Date.now());
-    const _pdfTitle = `【${issuer}】${_fromDate.getFullYear()}年${_fromDate.getMonth()+1}月分御請求書_${client}御中`;
+    const _issuerCompact = issuer.replace(/[ 　]/g, '');
+    const _pdfTitle = `【${_issuerCompact}】${_fromDate.getFullYear()}年${_fromDate.getMonth()+1}月分御請求書_${client}御中`;
 
     const extraRows = (extraItems || []).map((item, i) => `
       <tr>
@@ -1455,7 +1456,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>請求書 ${h(invNo)}</title>
+<title>${h(_pdfTitle)}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Meiryo','メイリオ','Hiragino Kaku Gothic Pro',sans-serif;background:#fff;color:#333;font-size:14px;line-height:1.75;letter-spacing:0.05em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -1589,7 +1590,6 @@
 
 <script>
 function dlPDF(){
-  document.title = ${JSON.stringify(_pdfTitle)};
   window.print();
 }
 <\/script>
