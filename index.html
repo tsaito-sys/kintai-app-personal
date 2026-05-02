@@ -1589,36 +1589,9 @@
 </div>
 
 <script>
-function loadScript(src) {
-  return new Promise(function(resolve, reject) {
-    var s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
-async function dlPDF() {
-  const btns = document.querySelectorAll('.tb-pdf');
-  btns.forEach(b => { b.disabled = true; b.textContent = '生成中…'; });
-  try {
-    if (typeof html2pdf === 'undefined') {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
-    }
-    const el = document.getElementById('inv-outer');
-    await html2pdf().set({
-      margin: 0,
-      filename: ${JSON.stringify(_pdfTitle + '.pdf')},
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, windowWidth: 794 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).from(el).save();
-  } catch(e) {
-    alert('PDF生成に失敗しました。インターネット接続を確認してください。\n' + e);
-  } finally {
-    btns.forEach(b => { b.disabled = false; b.textContent = 'PDFダウンロード'; });
-  }
+function dlPDF() {
+  document.title = ${JSON.stringify(_pdfTitle)};
+  window.print();
 }
 <\/script>
 <div class="toolbar" style="margin-top:24px">
