@@ -497,7 +497,7 @@
       </div>
       <div class="form-group full">
         <label for="inv-note">備考</label>
-        <textarea id="inv-note" placeholder="例）いつもお世話になっております。来月度もよろしくお願いいたします。なお、振込手数料は貴社にてご負担いただけますと幸いです。" style="min-height:60px"></textarea>
+        <textarea id="inv-note" placeholder="例）いつもお世話になっております。来月度もよろしくお願いいたします。&#10;なお、振込手数料は貴社にてご負担いただけますと幸いです。" style="min-height:60px"></textarea>
       </div>
     </div>
 
@@ -1457,7 +1457,6 @@
 <head>
 <meta charset="UTF-8">
 <title>${h(_pdfTitle)}</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Meiryo','メイリオ','Hiragino Kaku Gothic Pro',sans-serif;background:#fff;color:#333;font-size:14px;line-height:1.75;letter-spacing:0.05em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -1579,7 +1578,7 @@
   <div class="inv-notes">
     <div class="inv-note-sec">
       <h3>備考</h3>
-      <p>${h(note || 'いつもお世話になっております。来月度もよろしくお願いいたします。なお、振込手数料は貴社にてご負担いただけますと幸いです。')}</p>
+      <p>${h(note || 'いつもお世話になっております。来月度もよろしくお願いいたします。\nなお、振込手数料は貴社にてご負担いただけますと幸いです。')}</p>
     </div>
     <div class="inv-note-sec">
       <h3>振込先</h3>
@@ -1590,13 +1589,24 @@
 </div>
 
 <script>
+function loadScript(src) {
+  return new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
 async function dlPDF() {
-  const el = document.getElementById('inv-outer');
   const btns = document.querySelectorAll('.tb-pdf');
   btns.forEach(b => { b.disabled = true; b.textContent = '生成中…'; });
-  const prevMargin = el.style.margin;
-  el.style.margin = '0 auto';
   try {
+    if (typeof html2pdf === 'undefined') {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+    }
+    const el = document.getElementById('inv-outer');
     await html2pdf().set({
       margin: 0,
       filename: ${JSON.stringify(_pdfTitle + '.pdf')},
@@ -1604,8 +1614,9 @@ async function dlPDF() {
       html2canvas: { scale: 2, useCORS: true, windowWidth: 794 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     }).from(el).save();
+  } catch(e) {
+    alert('PDF生成に失敗しました。インターネット接続を確認してください。\n' + e);
   } finally {
-    el.style.margin = prevMargin;
     btns.forEach(b => { b.disabled = false; b.textContent = 'PDFダウンロード'; });
   }
 }
