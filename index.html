@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>勤怠管理</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='100'>📅</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='52' font-size='90' text-anchor='middle' dominant-baseline='middle'>📅</text></svg>" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
@@ -1274,21 +1274,14 @@
 
   function updateExtraRowTaxType(select) {
     const tr = select.closest('tr');
-    const qtyInput = tr.querySelector('.ei-qty');
-    const isTaxable = select.value === 'taxable';
-    qtyInput.disabled = !isTaxable;
-    qtyInput.style.background = isTaxable ? '#f7fafc' : '#edf2f7';
-    qtyInput.style.color = isTaxable ? '' : '#a0aec0';
-    if (!isTaxable) qtyInput.value = '';
     calcExtraRow(tr.querySelector('.ei-price'));
   }
 
   function calcExtraRow(input) {
     const tr = input.closest('tr');
-    const taxable = tr.querySelector('.ei-tax').value === 'taxable';
-    const qty     = parseFloat(tr.querySelector('.ei-qty').value)   || 0;
-    const price   = parseFloat(tr.querySelector('.ei-price').value) || 0;
-    const amount  = taxable ? Math.floor(qty * price) : Math.floor(price);
+    const qty    = parseFloat(tr.querySelector('.ei-qty').value)   || 0;
+    const price  = parseFloat(tr.querySelector('.ei-price').value) || 0;
+    const amount = Math.floor(qty * price);
     tr.querySelector('.ei-amount').textContent = '¥' + amount.toLocaleString('ja-JP');
   }
 
@@ -1394,9 +1387,9 @@
     document.querySelectorAll('#inv-extra-rows tr').forEach(tr => {
       const name      = tr.querySelector('.ei-name')?.value.trim() || '';
       const taxable   = tr.querySelector('.ei-tax')?.value !== 'non';
-      const qty       = taxable ? (parseFloat(tr.querySelector('.ei-qty')?.value) || 0) : null;
+      const qty       = parseFloat(tr.querySelector('.ei-qty')?.value) || 0;
       const unitPrice = parseFloat(tr.querySelector('.ei-price')?.value) || 0;
-      const amount    = taxable ? Math.floor((qty || 0) * unitPrice) : Math.floor(unitPrice);
+      const amount    = Math.floor(qty * unitPrice);
       extraItems.push({ name, qty, unitPrice, amount, taxable });
     });
 
@@ -1445,7 +1438,7 @@
     const extraRows = (extraItems || []).map((item, i) => `
       <tr>
         <td>${h(item.name) || `品目${i + 2}`}</td>
-        <td class="r">${item.taxable ? item.qty : '–'}</td>
+        <td class="r">${item.qty}</td>
         <td class="r">¥${fm(item.unitPrice)}</td>
         <td class="c">${item.taxable ? '課税' : '非課税'}</td>
         <td class="r">¥${fm(item.amount)}</td>
