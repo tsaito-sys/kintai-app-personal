@@ -6,6 +6,7 @@
   <title>勤怠管理</title>
   <link rel="icon" href="favicon.png" type="image/png" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2/encoding.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -836,19 +837,19 @@
     if (!sb) { showToast('データベースに接続されていません', true); return; }
     if (!records.length) { showToast('エクスポートするデータがありません', true); return; }
 
-    const header = ['日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(分)', '作業内容・メモ'];
+    const header = ['日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(時間)', '作業内容・メモ'];
     const rows = records.map(r => [
       r.date,
       r.start_time || '',
       r.end_time || '',
       r.break_min ?? 0,
-      r.work_min ?? 0,
+      ((r.work_min ?? 0) / 60).toFixed(2),
       (r.memo || '').replace(/"/g, '""')
     ].map(v => `"${v}"`).join(','));
 
-    const bom = '\uFEFF';
-    const csv = bom + [header.join(','), ...rows].join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const csv = [header.join(','), ...rows].join('\r\n');
+    const sjisArray = Encoding.convert(Encoding.stringToCode(csv), { to: 'SJIS', from: 'UNICODE' });
+    const blob = new Blob([new Uint8Array(sjisArray)], { type: 'text/csv;charset=Shift_JIS;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const from = document.getElementById('filter-from').value;
