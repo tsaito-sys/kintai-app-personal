@@ -282,22 +282,118 @@
     }
     .gcal-import-row label { white-space: nowrap; }
     .gcal-import-row input[type=number] { width: 80px; }
+
+    /* ─── Auth Screens ─── */
+    .auth-screen {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #f0f4f8;
+      z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-card {
+      background: white; border-radius: 16px;
+      padding: 40px 36px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      width: 100%; max-width: 400px;
+    }
+    .auth-card h2 {
+      font-size: 1.4rem; font-weight: 700; color: #2b6cb0;
+      text-align: center; margin-bottom: 8px; border: none; padding: 0;
+    }
+    .auth-subtitle {
+      font-size: 0.85rem; color: #718096;
+      text-align: center; margin-bottom: 24px;
+    }
+    .auth-error {
+      color: #c53030; font-size: 0.85rem;
+      margin-top: 10px; text-align: center; min-height: 20px;
+    }
+    /* ─── Modal ─── */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.45);
+      z-index: 2000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-card {
+      background: white; border-radius: 12px;
+      padding: 32px 28px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      width: 100%; max-width: 360px;
+    }
+    .modal-card h3 {
+      font-size: 1rem; font-weight: 700; color: #2b6cb0; margin-bottom: 16px;
+    }
+    /* ─── Admin badge ─── */
+    .admin-badge {
+      background: #fefcbf; color: #744210;
+      font-size: 0.7rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 20px; margin-left: 6px;
+      vertical-align: middle;
+    }
   </style>
 </head>
 <body>
 
 <header>
   <h1>勤怠管理</h1>
-  <div>
-    <span id="status-dot"></span>
-    <span id="status-label">未接続</span>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div>
+      <span id="status-dot"></span>
+      <span id="status-label">未接続</span>
+    </div>
+    <div id="header-user" style="display:none;align-items:center;gap:10px;font-size:0.85rem">
+      <span id="header-username"></span>
+      <button class="btn" style="padding:5px 12px;font-size:0.8rem;background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.4)" onclick="showPwModal()">パスワード変更</button>
+      <button class="btn" style="padding:5px 12px;font-size:0.8rem;background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.4)" onclick="doLogout()">ログアウト</button>
+    </div>
   </div>
 </header>
 
-<div class="container">
+<!-- ─── ログイン画面 ─── -->
+<div id="login-screen" class="auth-screen">
+  <div class="auth-card">
+    <h2>勤怠管理</h2>
+    <p class="auth-subtitle">メールアドレスとパスワードでログインしてください</p>
+    <div class="form-group">
+      <label for="login-email">メールアドレス</label>
+      <input type="email" id="login-email" placeholder="example@email.com" autocomplete="email" />
+    </div>
+    <div class="form-group">
+      <label for="login-password">パスワード</label>
+      <input type="password" id="login-password" placeholder="パスワード" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-primary" style="width:100%" onclick="doLogin()">ログイン</button>
+    </div>
+    <p class="auth-error" id="login-error"></p>
+  </div>
+</div>
+
+<!-- ─── 初回プロフィール設定画面 ─── -->
+<div id="profile-screen" class="auth-screen" style="display:none">
+  <div class="auth-card">
+    <h2>プロフィール設定</h2>
+    <p class="auth-subtitle">初回ログインです。表示名を登録してください</p>
+    <div class="form-group">
+      <label for="profile-name-input">氏名</label>
+      <input type="text" id="profile-name-input" placeholder="例）山田 太郎"
+        onkeydown="if(event.key==='Enter')saveProfile()" />
+    </div>
+    <div class="btn-row" style="margin-top:20px">
+      <button class="btn btn-primary" style="width:100%" onclick="saveProfile()">登録して始める</button>
+    </div>
+    <p class="auth-error" id="profile-error"></p>
+  </div>
+</div>
+
+<div class="container" id="main-app" style="display:none">
 
   <!-- 上部: 1枠・2カラム -->
-  <div class="card" style="margin-bottom:20px">
+  <div class="card" id="section-top-card" style="margin-bottom:20px">
     <div class="top-cols">
 
       <!-- 左: 稼働予定の一括登録 -->
@@ -450,13 +546,13 @@
     </div>
 
     <!-- 勤怠追加 -->
-    <div class="btn-row" style="margin-top:12px">
+    <div id="btn-add-record" class="btn-row" style="margin-top:12px">
       <button class="btn btn-primary" onclick="addRecordRow()">＋ 勤怠追加</button>
     </div>
   </div>
 
   <!-- 下部: 請求書作成 -->
-  <div class="card">
+  <div class="card" id="section-invoice">
     <h2>請求書作成</h2>
 
     <!-- 請求情報 -->
@@ -602,6 +698,28 @@
   </div>
 
 
+</div><!-- /#main-app -->
+
+<!-- ─── パスワード変更モーダル ─── -->
+<div id="pw-modal" class="modal-overlay" style="display:none"
+  onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-card">
+    <h3>パスワード変更</h3>
+    <div class="form-group">
+      <label for="pw-new">新しいパスワード</label>
+      <input type="password" id="pw-new" placeholder="8文字以上" />
+    </div>
+    <div class="form-group">
+      <label for="pw-confirm">確認（再入力）</label>
+      <input type="password" id="pw-confirm" placeholder="同じパスワードを入力"
+        onkeydown="if(event.key==='Enter')doChangePw()" />
+    </div>
+    <p class="auth-error" id="pw-error"></p>
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn btn-primary" onclick="doChangePw()">変更する</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('pw-modal').style.display='none'">キャンセル</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -614,13 +732,10 @@
 
   let sb = null;
   let records = [];
-
-  // ─── Init ─────────────────────────────────────────────────
-  function onConnected() {
-    document.getElementById('status-dot').classList.add('connected');
-    document.getElementById('status-label').textContent = '接続済み';
-    loadRecords();
-  }
+  let currentUser    = null;
+  let currentRole    = 'user';
+  let currentProfile = null;
+  let allProfiles    = {};
 
   function formatMin(min) {
     if (min == null || isNaN(min)) return '–';
@@ -629,11 +744,66 @@
     return `${h}時間${m > 0 ? m + '分' : ''}`;
   }
 
-  // ─── 自動接続 ─────────────────────────────────────────────
-  (function setDefaults() {
+  // ─── 画面切り替え ──────────────────────────────────────────
+  function showScreen(name) {
+    document.getElementById('login-screen').style.display   = name === 'login'   ? 'flex' : 'none';
+    document.getElementById('profile-screen').style.display = name === 'profile' ? 'flex' : 'none';
+    document.getElementById('main-app').style.display       = name === 'main'    ? ''     : 'none';
+  }
+
+  function applyRoleUI() {
+    const isAdmin = currentRole === 'admin';
+    const headerUser = document.getElementById('header-user');
+    headerUser.style.display = 'flex';
+    document.getElementById('header-username').innerHTML = isAdmin
+      ? '管理者<span class="admin-badge">ADMIN</span>'
+      : escHtml(currentProfile?.name || currentUser?.email || '');
+    document.getElementById('section-top-card').style.display = isAdmin ? 'none' : '';
+    document.getElementById('section-invoice').style.display  = isAdmin ? 'none' : '';
+    document.getElementById('btn-add-record').style.display   = isAdmin ? 'none' : '';
+  }
+
+  // ─── 認証初期化 ───────────────────────────────────────────
+  (function initApp() {
     try {
       sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      onConnected();
+
+      sb.auth.onAuthStateChange(async (event, session) => {
+        currentUser = session?.user || null;
+        currentRole = currentUser?.user_metadata?.role || 'user';
+
+        if (!currentUser) {
+          showScreen('login');
+          document.getElementById('header-user').style.display = 'none';
+          document.getElementById('status-dot').classList.remove('connected');
+          document.getElementById('status-label').textContent = '未接続';
+          records = [];
+          return;
+        }
+
+        document.getElementById('status-dot').classList.add('connected');
+        document.getElementById('status-label').textContent = '接続済み';
+
+        if (currentRole === 'admin') {
+          const { data: profiles } = await sb.from('profiles').select('*');
+          allProfiles = {};
+          (profiles || []).forEach(p => { allProfiles[p.id] = p.name; });
+          currentProfile = { id: currentUser.id, name: '管理者' };
+          applyRoleUI();
+          showScreen('main');
+          loadRecords();
+          return;
+        }
+
+        const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+        if (!profile) { showScreen('profile'); return; }
+
+        currentProfile = profile;
+        applyRoleUI();
+        showScreen('main');
+        loadRecords();
+      });
+
     } catch (e) {
       showToast('Supabase接続エラー: ' + e.message, true);
       console.error('Supabase init error:', e);
@@ -705,7 +875,7 @@
 
     btn.disabled = true;
     btn.textContent = '保存中...';
-    const { error } = await sb.from(TABLE).insert([{ date, start_time, end_time, break_min, work_min, memo }]);
+    const { error } = await sb.from(TABLE).insert([{ date, start_time, end_time, break_min, work_min, memo, user_id: currentUser.id }]);
 
     if (error) {
       btn.disabled = false;
@@ -724,7 +894,7 @@
     if (!sb) return;
 
     const from = document.getElementById('filter-from').value;
-    const to = document.getElementById('filter-to').value;
+    const to   = document.getElementById('filter-to').value;
 
     if (!from || !to) {
       document.getElementById('records-body').innerHTML =
@@ -741,12 +911,21 @@
     if (error) { showToast('取得失敗: ' + error.message, true); return; }
 
     records = data || [];
+
+    if (currentRole === 'admin' && records.length > 0) {
+      const { data: profiles } = await sb.from('profiles').select('*');
+      allProfiles = {};
+      (profiles || []).forEach(p => { allProfiles[p.id] = p.name; });
+    }
+
     renderTable(records);
     renderSummary(records);
   }
 
   function renderTable(data) {
-    const tbody = document.getElementById('records-body');
+    const tbody  = document.getElementById('records-body');
+    const theadTr = document.querySelector('#records-table thead tr');
+
     if (!data.length) {
       tbody.innerHTML = '<tr><td colspan="7" id="empty-msg">データがありません</td></tr>';
       return;
@@ -754,20 +933,36 @@
 
     const inp = 'border:1px solid #cbd5e0;border-radius:6px;padding:4px 6px;font-size:0.85rem;background:#f7fafc;width:100%';
 
-    tbody.innerHTML = data.map(r => `
-      <tr data-id="${r.id}">
-        <td><input type="date" class="r-date" value="${r.date}" style="${inp};min-width:120px"></td>
-        <td><input type="time" class="r-start" value="${r.start_time || ''}" style="${inp};min-width:82px"></td>
-        <td><input type="time" class="r-end" value="${r.end_time || ''}" style="${inp};min-width:82px"></td>
-        <td style="white-space:nowrap"><input type="number" class="r-break" value="${r.break_min ?? 0}" min="0" max="480" style="${inp};width:52px"> 分</td>
-        <td class="work-time">${formatMin(r.work_min)}</td>
-        <td><input type="text" class="r-memo" value="${escHtml(r.memo || '')}" style="${inp}"></td>
-        <td style="white-space:nowrap">
-          <button class="btn-save-row" onclick="updateRecord('${r.id}', this)">保存</button>
-          <button class="btn-delete" onclick="deleteRecord('${r.id}')">削除</button>
-        </td>
-      </tr>
-    `).join('');
+    if (currentRole === 'admin') {
+      theadTr.innerHTML = '<th>氏名</th><th>日付</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実労働時間</th><th>メモ</th>';
+      tbody.innerHTML = data.map(r => `
+        <tr data-id="${r.id}">
+          <td>${escHtml(allProfiles[r.user_id] || '（不明）')}</td>
+          <td>${escHtml(r.date)}</td>
+          <td>${escHtml(r.start_time || '–')}</td>
+          <td>${escHtml(r.end_time || '–')}</td>
+          <td style="white-space:nowrap">${r.break_min ?? 0} 分</td>
+          <td class="work-time">${formatMin(r.work_min)}</td>
+          <td class="memo-cell">${escHtml(r.memo || '')}</td>
+        </tr>
+      `).join('');
+    } else {
+      theadTr.innerHTML = '<th>日付</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実労働時間</th><th>メモ</th><th></th>';
+      tbody.innerHTML = data.map(r => `
+        <tr data-id="${r.id}">
+          <td><input type="date" class="r-date" value="${r.date}" style="${inp};min-width:120px"></td>
+          <td><input type="time" class="r-start" value="${r.start_time || ''}" style="${inp};min-width:82px"></td>
+          <td><input type="time" class="r-end" value="${r.end_time || ''}" style="${inp};min-width:82px"></td>
+          <td style="white-space:nowrap"><input type="number" class="r-break" value="${r.break_min ?? 0}" min="0" max="480" style="${inp};width:52px"> 分</td>
+          <td class="work-time">${formatMin(r.work_min)}</td>
+          <td><input type="text" class="r-memo" value="${escHtml(r.memo || '')}" style="${inp}"></td>
+          <td style="white-space:nowrap">
+            <button class="btn-save-row" onclick="updateRecord('${r.id}', this)">保存</button>
+            <button class="btn-delete" onclick="deleteRecord('${r.id}')">削除</button>
+          </td>
+        </tr>
+      `).join('');
+    }
   }
 
   async function updateRecord(id, btn) {
@@ -811,7 +1006,7 @@
 
   function renderSummary(data) {
     const card = document.getElementById('summary-card');
-    if (!data.length) { card.style.display = 'none'; return; }
+    if (!data.length || currentRole === 'admin') { card.style.display = 'none'; return; }
 
     const totalMin = data.reduce((s, r) => s + (r.work_min || 0), 0);
     const days = data.length;
@@ -837,15 +1032,32 @@
     if (!sb) { showToast('データベースに接続されていません', true); return; }
     if (!records.length) { showToast('エクスポートするデータがありません', true); return; }
 
-    const header = ['日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(時間)', '作業内容・メモ'];
-    const rows = records.map(r => [
-      r.date,
-      r.start_time || '',
-      r.end_time || '',
-      r.break_min ?? 0,
-      ((r.work_min ?? 0) / 60).toFixed(2),
-      (r.memo || '').replace(/"/g, '""')
-    ].map(v => `"${v}"`).join(','));
+    let header, rows, namePrefix;
+
+    if (currentRole === 'admin') {
+      header = ['氏名', '日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(時間)', '作業内容・メモ'];
+      rows = records.map(r => [
+        allProfiles[r.user_id] || '（不明）',
+        r.date,
+        r.start_time || '',
+        r.end_time || '',
+        r.break_min ?? 0,
+        ((r.work_min ?? 0) / 60).toFixed(2),
+        (r.memo || '').replace(/"/g, '""')
+      ].map(v => `"${v}"`).join(','));
+      namePrefix = '全ユーザー';
+    } else {
+      header = ['日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(時間)', '作業内容・メモ'];
+      rows = records.map(r => [
+        r.date,
+        r.start_time || '',
+        r.end_time || '',
+        r.break_min ?? 0,
+        ((r.work_min ?? 0) / 60).toFixed(2),
+        (r.memo || '').replace(/"/g, '""')
+      ].map(v => `"${v}"`).join(','));
+      namePrefix = document.getElementById('inv-issuer').value.trim().replace(/[ 　]/g, '') || 'kintai';
+    }
 
     const csv = [header.join(','), ...rows].join('\r\n');
     const sjisArray = Encoding.convert(Encoding.stringToCode(csv), { to: 'SJIS', from: 'UNICODE' });
@@ -853,14 +1065,13 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const from = document.getElementById('filter-from').value;
-    const issuerName = document.getElementById('inv-issuer').value.trim().replace(/[ 　]/g, '') || 'kintai';
     let dateLabel = '';
     if (from) {
       const d = new Date(from);
       dateLabel = `${d.getFullYear()}年${d.getMonth()+1}月分`;
     }
     a.href = url;
-    a.download = `${issuerName}_${dateLabel}勤怠データ.csv`;
+    a.download = `${namePrefix}_${dateLabel}勤怠データ.csv`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('CSVをエクスポートしました');
@@ -1248,7 +1459,7 @@
       const [eh, em] = end.split(':').map(Number);
       let workMin = (eh * 60 + em) - (sh * 60 + sm) - breakMin;
       if (workMin < 0) workMin = 0;
-      return { date, start_time: start, end_time: end, break_min: breakMin, work_min: workMin, memo };
+      return { date, start_time: start, end_time: end, break_min: breakMin, work_min: workMin, memo, user_id: currentUser.id };
     });
 
     const btn = document.getElementById('gcal-import-btn');
@@ -1625,6 +1836,74 @@ function dlPDF() {
     t.className = 'toast show' + (isError ? ' error' : '');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { t.className = 'toast'; }, duration);
+  }
+
+  // ─── 認証 ────────────────────────────────────────────────
+  async function doLogin() {
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl    = document.getElementById('login-error');
+
+    if (!email || !password) {
+      errEl.textContent = 'メールアドレスとパスワードを入力してください'; return;
+    }
+    errEl.textContent = '';
+    const btn = document.querySelector('#login-screen .btn-primary');
+    btn.disabled = true; btn.textContent = 'ログイン中...';
+
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    btn.disabled = false; btn.textContent = 'ログイン';
+    if (error) {
+      errEl.textContent = error.message === 'Invalid login credentials'
+        ? 'メールアドレスまたはパスワードが違います'
+        : 'ログインに失敗しました: ' + error.message;
+    }
+  }
+
+  async function doLogout() {
+    if (!confirm('ログアウトしますか？')) return;
+    await sb.auth.signOut();
+    currentUser = null; currentRole = 'user'; currentProfile = null; allProfiles = {};
+  }
+
+  async function saveProfile() {
+    const name  = document.getElementById('profile-name-input').value.trim();
+    const errEl = document.getElementById('profile-error');
+    if (!name) { errEl.textContent = '氏名を入力してください'; return; }
+    errEl.textContent = '';
+    const btn = document.querySelector('#profile-screen .btn-primary');
+    btn.disabled = true; btn.textContent = '登録中...';
+
+    const { error } = await sb.from('profiles').insert([{ id: currentUser.id, name }]);
+    btn.disabled = false; btn.textContent = '登録して始める';
+
+    if (error) { errEl.textContent = '登録に失敗しました: ' + error.message; return; }
+    currentProfile = { id: currentUser.id, name };
+    applyRoleUI();
+    showScreen('main');
+    loadRecords();
+  }
+
+  function showPwModal() {
+    document.getElementById('pw-new').value     = '';
+    document.getElementById('pw-confirm').value = '';
+    document.getElementById('pw-error').textContent = '';
+    document.getElementById('pw-modal').style.display = 'flex';
+  }
+
+  async function doChangePw() {
+    const pw    = document.getElementById('pw-new').value;
+    const pw2   = document.getElementById('pw-confirm').value;
+    const errEl = document.getElementById('pw-error');
+    if (!pw || pw.length < 8) { errEl.textContent = 'パスワードは8文字以上で入力してください'; return; }
+    if (pw !== pw2)           { errEl.textContent = 'パスワードが一致しません'; return; }
+    errEl.textContent = '';
+    const btn = document.querySelector('#pw-modal .btn-primary');
+    btn.disabled = true; btn.textContent = '変更中...';
+    const { error } = await sb.auth.updateUser({ password: pw });
+    btn.disabled = false; btn.textContent = '変更する';
+    if (error) { errEl.textContent = '変更に失敗しました: ' + error.message; }
+    else { document.getElementById('pw-modal').style.display = 'none'; showToast('パスワードを変更しました'); }
   }
 </script>
 </body>
