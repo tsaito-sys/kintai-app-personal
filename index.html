@@ -959,7 +959,15 @@
       console.log('[Auth] profiles result – count:', profiles?.length ?? 0, '/ error:', pErr?.message ?? 'none');
       allProfiles = {};
       (profiles || []).forEach(p => { allProfiles[p.id] = p.name; });
-      currentProfile = { id: currentUser.id, name: '管理者' };
+
+      const adminProfile = (profiles || []).find(p => p.id === currentUser.id) ?? null;
+      if (!adminProfile) {
+        console.log('[Auth] Admin has no profile – showing profile setup screen');
+        showScreen('profile');
+        return;
+      }
+
+      currentProfile = adminProfile;
       applyRoleUI();
       populateUserFilter(profiles || []);
       showScreen('main');
