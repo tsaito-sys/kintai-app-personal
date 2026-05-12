@@ -1870,38 +1870,51 @@ function dlPDF() {
 
   // ─── 認証 ────────────────────────────────────────────────
   async function doLogin() {
+    console.log('[Login] doLogin called');
     const email    = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
     const errEl    = document.getElementById('login-error');
+    console.log('[Login] email:', email, '/ password length:', password.length);
 
     if (!email || !password) {
       errEl.textContent = 'メールアドレスとパスワードを入力してください'; return;
     }
     errEl.textContent = '';
     const btn = document.querySelector('#login-screen .btn-primary');
+    console.log('[Login] btn element found:', !!btn);
     btn.disabled = true; btn.textContent = 'ログイン中...';
-    console.log('[Login] Attempting login for:', email);
 
     try {
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('接続がタイムアウトしました（15秒）')), 15000)
       );
-      const { error } = await Promise.race([
+      console.log('[Login] calling signInWithPassword...');
+      const { data, error } = await Promise.race([
         sb.auth.signInWithPassword({ email, password }),
         timeout
       ]);
-      console.log('[Login] signInWithPassword done – error:', error?.message ?? 'none');
+      console.log('[Login] done – error:', error?.message ?? 'none', '/ session:', data?.session ? 'exists' : 'null');
+
       if (error) {
-        errEl.textContent = error.message === 'Invalid login credentials'
-          ? 'メールアドレスまたはパスワードが違います'
-          : 'ログインに失敗しました: ' + error.message;
+        const msg = error.message;
+        if (msg === 'Invalid login credentials') {
+          errEl.textContent = 'メールアドレスまたはパスワードが違います';
+        } else if (msg === 'Email not confirmed' || msg === 'email_not_confirmed') {
+          errEl.textContent = 'メールアドレスが未確認です。Supabase管理画面 → Authentication → Users でユーザーを選択し「Send confirmation email」を送るか、Auth設定でメール確認を無効にしてください。';
+        } else {
+          errEl.textContent = 'ログインに失敗しました: ' + msg;
+        }
+      } else if (!data?.session) {
+        // error: null なのに session も null = メール未確認の可能性が高い
+        console.warn('[Login] No session returned despite no error – likely email not confirmed');
+        errEl.textContent = 'ログインできませんでした（セッションが発行されませんでした）。Supabase管理画面でユーザーのメール確認状態を確認してください。';
       }
     } catch (e) {
-      console.error('[Login] Exception:', e);
+      console.error('[Login] exception:', e);
       errEl.textContent = e.message || 'ログインに失敗しました';
     } finally {
       btn.disabled = false; btn.textContent = 'ログイン';
-      console.log('[Login] Button reset');
+      console.log('[Login] button reset (finally)');
     }
   }
 
