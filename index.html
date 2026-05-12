@@ -514,7 +514,7 @@
                   <th>出勤時間</th>
                   <th>退勤時間</th>
                   <th style="width:90px">休憩(分)<br><span style="font-weight:400;font-size:0.7rem;opacity:0.85">自動計算</span></th>
-                  <th>メモ</th>
+                  <th>作業内容</th>
                 </tr>
               </thead>
               <tbody id="gcal-preview-body"></tbody>
@@ -584,7 +584,7 @@
             <th>退勤</th>
             <th>休憩</th>
             <th>実労働時間</th>
-            <th>メモ</th>
+            <th>作業内容</th>
             <th></th>
           </tr>
         </thead>
@@ -1001,7 +1001,7 @@
       <td><input type="time" id="add-end" style="${inp};min-width:82px"></td>
       <td style="white-space:nowrap"><input type="number" id="add-break" value="60" min="0" max="480" style="${inp};width:52px"> 分</td>
       <td class="work-time" id="add-work-display">–</td>
-      <td><input type="text" id="add-memo" style="${inp}" placeholder="メモ"></td>
+      <td><input type="text" id="add-memo" style="${inp}" placeholder="作業内容"></td>
       <td style="white-space:nowrap">
         <button class="btn-save-row" onclick="saveNewRecord(this)">保存</button>
         <button class="btn-delete" onclick="document.getElementById('add-record-row').remove()">キャンセル</button>
@@ -1109,7 +1109,7 @@
     const inp = 'border:1px solid #cbd5e0;border-radius:6px;padding:4px 6px;font-size:0.85rem;background:#f7fafc;width:100%';
 
     if (currentRole === 'admin') {
-      theadTr.innerHTML = '<th>氏名</th><th>日付</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実労働時間</th><th>メモ</th>';
+      theadTr.innerHTML = '<th>氏名</th><th>日付</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実労働時間</th><th>作業内容</th>';
       tbody.innerHTML = data.map(r => `
         <tr data-id="${r.id}">
           <td>${escHtml(allProfiles[r.user_id] || '（不明）')}</td>
@@ -1122,7 +1122,7 @@
         </tr>
       `).join('');
     } else {
-      theadTr.innerHTML = '<th>日付</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実労働時間</th><th>メモ</th><th></th>';
+      theadTr.innerHTML = '<th>日付</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実労働時間</th><th>作業内容</th><th></th>';
       tbody.innerHTML = data.map(r => `
         <tr data-id="${r.id}">
           <td><input type="date" class="r-date" value="${r.date}" style="${inp};min-width:120px"></td>
@@ -1210,7 +1210,7 @@
     let header, rows, namePrefix;
 
     if (currentRole === 'admin') {
-      header = ['氏名', '日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(時間)', '作業内容・メモ'];
+      header = ['氏名', '日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(時間)', '作業内容'];
       rows = records.map(r => [
         allProfiles[r.user_id] || '（不明）',
         r.date,
@@ -1223,7 +1223,7 @@
       const selectedUserId = document.getElementById('filter-user').value;
       namePrefix = selectedUserId ? (allProfiles[selectedUserId] || '不明') : '全ユーザー';
     } else {
-      header = ['日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(時間)', '作業内容・メモ'];
+      header = ['日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(時間)', '作業内容'];
       rows = records.map(r => [
         r.date,
         r.start_time || '',
@@ -1573,7 +1573,7 @@
         const [sh, sm] = start.split(':').map(Number);
         const [eh, em] = end.split(':').map(Number);
         const spanMin = (eh * 60 + em) - (sh * 60 + sm);
-        return { date, start, end, memo: d.titles.join(' / '), breakMin: calcBreakMin(spanMin) };
+        return { date, start, end, memo: '', breakMin: calcBreakMin(spanMin) };
       });
 
       renderGcalPreview();
@@ -1623,7 +1623,7 @@
         <td><input type="time"   class="gcal-in-start" data-idx="${i}" value="${escHtml(row.start)}"   style="${inp};width:92px"></td>
         <td><input type="time"   class="gcal-in-end"   data-idx="${i}" value="${escHtml(row.end)}"     style="${inp};width:92px"></td>
         <td><input type="number" class="gcal-in-break" data-idx="${i}" value="${Number(row.breakMin)}" min="0" max="480" style="${inp};width:66px"></td>
-        <td><input type="text"   class="gcal-in-memo"  data-idx="${i}" value="${escHtml(row.memo)}"    style="${inp};width:100%;min-width:120px"></td>
+        <td><input type="text"   class="gcal-in-memo"  data-idx="${i}" value="${escHtml(row.memo)}" placeholder="作業内容"   style="${inp};width:100%;min-width:120px"></td>
       </tr>`;
     });
 
