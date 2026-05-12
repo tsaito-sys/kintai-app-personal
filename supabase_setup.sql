@@ -84,3 +84,43 @@ CREATE POLICY "profiles_update" ON profiles FOR UPDATE USING (
 -- Supabase Dashboard > Authentication > Users > 「Add user」
 -- メールアドレスと仮パスワードを設定して作成
 -- ============================================================
+
+-- ============================================================
+-- 7. ユーザー管理画面用 SQL 関数（管理者がユーザー一覧を取得）
+--    ※ この関数を実行しないとユーザー管理画面の一覧が表示されません
+-- ============================================================
+CREATE OR REPLACE FUNCTION list_users_for_admin()
+RETURNS TABLE (
+  id               uuid,
+  email            text,
+  name             text,
+  role             text,
+  created_at       timestamptz,
+  email_confirmed  bool
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  -- 管理者のみ実行可能
+  IF (auth.jwt() -> 'user_metadata' ->> 'role') <> 'admin' THEN
+    RAISE EXCEPTION 'admin only';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    au.id,
+    au.email,
+    p.name,
+    COALESCE(au.raw_user_meta_data ->> 'role', 'user'),
+    au.created_at,
+    (au.email_confirmed_at IS NOT NULL)
+  FROM auth.users au
+  LEFT JOIN public.profiles p ON p.id = au.id
+  ORDER BY au.created_at;
+END;
+$$;
+
+-- 認証済みユーザーに実行権限を付与（RLS 内で管理者チェックあり）
+GRANT EXECUTE ON FUNCTION list_users_for_admin() TO authenticated;

@@ -333,6 +333,48 @@
       padding: 2px 7px; border-radius: 20px; margin-left: 6px;
       vertical-align: middle;
     }
+
+    /* ─── User Management Modal ─── */
+    #user-mgmt-modal {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 3000;
+      overflow-y: auto;
+      padding: 24px 16px;
+    }
+    .um-panel {
+      background: white; border-radius: 12px;
+      padding: 28px; max-width: 920px; margin: 0 auto;
+    }
+    .um-panel h2 {
+      font-size: 1.1rem; font-weight: 700; color: #2b6cb0;
+      margin: 0; border: none; padding: 0;
+    }
+    .um-svckey-box {
+      background: #fffbeb; border: 1px solid #f59e0b;
+      border-radius: 8px; padding: 14px; margin-bottom: 20px;
+    }
+    .um-svckey-box summary {
+      cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      color: #92400e; list-style: none;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .um-svckey-body { margin-top: 12px; }
+    .um-svckey-body p { font-size: 0.78rem; color: #92400e; margin-bottom: 8px; line-height: 1.6; }
+    .um-add-box {
+      border: 1px solid #e2e8f0; border-radius: 8px;
+      margin-bottom: 20px; overflow: hidden;
+    }
+    .um-add-box summary {
+      cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      color: #2b6cb0; padding: 12px 16px; background: #f7fafc;
+      list-style: none; user-select: none;
+    }
+    .um-add-box summary:hover { background: #ebf8ff; }
+    .um-add-body { padding: 16px; background: #f7fafc; border-top: 1px solid #e2e8f0; }
+    .um-th { background: #2b6cb0; color: white; padding: 10px 12px; text-align: left; white-space: nowrap; font-weight: 600; font-size: 0.875rem; }
+    .um-td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 0.875rem; vertical-align: middle; }
   </style>
 </head>
 <body>
@@ -346,6 +388,7 @@
     </div>
     <div id="header-user" style="display:none;align-items:center;gap:10px;font-size:0.85rem">
       <span id="header-username"></span>
+      <button id="btn-user-mgmt" class="btn" style="display:none;padding:5px 12px;font-size:0.8rem;background:rgba(255,255,255,0.25);color:white;border:1px solid rgba(255,255,255,0.5);font-weight:700" onclick="showUserMgmt()">👥 ユーザー管理</button>
       <button class="btn" style="padding:5px 12px;font-size:0.8rem;background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.4)" onclick="showPwModal()">パスワード変更</button>
       <button class="btn" style="padding:5px 12px;font-size:0.8rem;background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.4)" onclick="doLogout()">ログアウト</button>
     </div>
@@ -700,6 +743,91 @@
 
 </div><!-- /#main-app -->
 
+<!-- ─── ユーザー管理モーダル ─── -->
+<div id="user-mgmt-modal" style="display:none">
+  <div class="um-panel">
+
+    <!-- タイトル -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <h2>ユーザー管理</h2>
+      <button class="btn btn-secondary" onclick="closeUserMgmt()">× 閉じる</button>
+    </div>
+
+    <!-- サービスロールキー設定（作成・削除に必要） -->
+    <details class="um-svckey-box" id="svc-key-details">
+      <summary>
+        <span>⚙️ ユーザー作成・削除の設定（サービスロールキー）</span>
+        <span id="svc-key-indicator" style="font-size:0.75rem;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e">未設定</span>
+      </summary>
+      <div class="um-svckey-body">
+        <p>Supabase Dashboard → Project Settings → API → <strong>service_role</strong> キーを入力してください。<br>
+          このキーはブラウザのセッション中のみ保持され、このページのSupabase接続にのみ使用されます。</p>
+        <div style="display:flex;gap:8px">
+          <input type="password" id="svc-key-input" placeholder="eyJh..."
+            style="flex:1;padding:8px 12px;border:1px solid #cbd5e0;border-radius:8px;font-size:0.85rem;background:white"
+            onkeydown="if(event.key==='Enter')setSvcKey()" />
+          <button class="btn btn-primary" onclick="setSvcKey()">設定</button>
+          <button class="btn btn-secondary" onclick="clearSvcKey()">クリア</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- 新規ユーザー追加 -->
+    <details class="um-add-box" id="add-user-details">
+      <summary>＋ 新規ユーザーを追加</summary>
+      <div class="um-add-body">
+        <div class="form-grid" style="grid-template-columns:1fr 1fr auto">
+          <div class="form-group">
+            <label>メールアドレス</label>
+            <input type="email" id="new-user-email" placeholder="user@example.com" />
+          </div>
+          <div class="form-group">
+            <label>仮パスワード（8文字以上）</label>
+            <input type="password" id="new-user-pass" placeholder="8文字以上" />
+          </div>
+          <div class="form-group">
+            <label>ロール</label>
+            <select id="new-user-role" style="padding:9px 12px;border:1px solid #cbd5e0;border-radius:8px;font-size:0.9rem;background:#f7fafc;color:#2d3748">
+              <option value="user">個人ユーザー</option>
+              <option value="admin">管理者</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:12px;align-items:center">
+          <button class="btn btn-primary" onclick="addUser()">ユーザーを追加</button>
+          <span id="add-user-msg" style="font-size:0.85rem;color:#718096"></span>
+        </div>
+      </div>
+    </details>
+
+    <!-- ユーザー一覧 -->
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:0.9rem;font-weight:700;color:#2d3748">ユーザー一覧</span>
+        <button class="btn btn-secondary" onclick="loadUsers()" style="font-size:0.82rem;padding:6px 14px">↺ 更新</button>
+      </div>
+      <div class="table-wrap">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th class="um-th">メールアドレス</th>
+              <th class="um-th">名前</th>
+              <th class="um-th">ロール</th>
+              <th class="um-th">作成日</th>
+              <th class="um-th">メール確認</th>
+              <th class="um-th">操作</th>
+            </tr>
+          </thead>
+          <tbody id="user-table-body">
+            <tr><td colspan="6" class="um-td" style="text-align:center;color:#a0aec0">読み込み中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- ─── パスワード変更モーダル ─── -->
 <div id="pw-modal" class="modal-overlay" style="display:none"
   onclick="if(event.target===this)this.style.display='none'">
@@ -761,6 +889,7 @@
     document.getElementById('section-top-card').style.display = isAdmin ? 'none' : '';
     document.getElementById('section-invoice').style.display  = isAdmin ? 'none' : '';
     document.getElementById('btn-add-record').style.display   = isAdmin ? 'none' : '';
+    document.getElementById('btn-user-mgmt').style.display    = isAdmin ? ''     : 'none';
   }
 
   // ─── 認証初期化 ───────────────────────────────────────────
@@ -774,6 +903,14 @@
       // resolve されず「ログイン中...」で固まる。
       sb.auth.onAuthStateChange((event, session) => {
         console.log('[Auth] event:', event, '/ user:', session?.user?.email ?? '(none)');
+
+        if (event === 'PASSWORD_RECOVERY') {
+          currentUser = session?.user || null;
+          console.log('[Auth] PASSWORD_RECOVERY – showing password change modal');
+          showToast('新しいパスワードを設定してください', false, 6000);
+          showPwModal();
+          return;
+        }
 
         currentUser = session?.user || null;
         currentRole = currentUser?.user_metadata?.role || 'user';
@@ -1952,6 +2089,152 @@ function dlPDF() {
     document.getElementById('pw-confirm').value = '';
     document.getElementById('pw-error').textContent = '';
     document.getElementById('pw-modal').style.display = 'flex';
+  }
+
+  // ─── ユーザー管理 ────────────────────────────────────────
+  let adminSb = null;
+
+  function showUserMgmt() {
+    document.getElementById('user-mgmt-modal').style.display = 'block';
+    const savedKey = sessionStorage.getItem('svc_role_key');
+    if (savedKey) {
+      if (!adminSb) initAdminClient(savedKey);
+      document.getElementById('svc-key-indicator').textContent = '設定済み ✓';
+      document.getElementById('svc-key-indicator').style.background = '#d1fae5';
+      document.getElementById('svc-key-indicator').style.color = '#065f46';
+    }
+    loadUsers();
+  }
+
+  function closeUserMgmt() {
+    document.getElementById('user-mgmt-modal').style.display = 'none';
+  }
+
+  function setSvcKey() {
+    const key = document.getElementById('svc-key-input').value.trim();
+    if (!key) { showToast('キーを入力してください', true); return; }
+    sessionStorage.setItem('svc_role_key', key);
+    document.getElementById('svc-key-input').value = '';
+    const ind = document.getElementById('svc-key-indicator');
+    ind.textContent = '設定済み ✓'; ind.style.background = '#d1fae5'; ind.style.color = '#065f46';
+    document.getElementById('svc-key-details').open = false;
+    initAdminClient(key);
+    showToast('サービスロールキーを設定しました（このセッション中のみ有効）');
+  }
+
+  function clearSvcKey() {
+    sessionStorage.removeItem('svc_role_key');
+    adminSb = null;
+    const ind = document.getElementById('svc-key-indicator');
+    ind.textContent = '未設定'; ind.style.background = '#fef3c7'; ind.style.color = '#92400e';
+    showToast('サービスロールキーをクリアしました');
+  }
+
+  function initAdminClient(key) {
+    adminSb = supabase.createClient(SUPABASE_URL, key, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+  }
+
+  async function loadUsers() {
+    const tbody = document.getElementById('user-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" class="um-td" style="text-align:center;color:#a0aec0">読み込み中...</td></tr>';
+    try {
+      const { data, error } = await sb.rpc('list_users_for_admin');
+      if (error) throw error;
+      renderUserTable(data || []);
+    } catch (e) {
+      console.error('[UserMgmt] loadUsers error:', e);
+      tbody.innerHTML = `<tr><td colspan="6" class="um-td" style="text-align:center;color:#c53030;line-height:1.8">
+        取得失敗: ${escHtml(e.message)}<br>
+        <small style="color:#718096">supabase_setup.sql の list_users_for_admin 関数を実行済みか確認してください</small>
+      </td></tr>`;
+    }
+  }
+
+  function renderUserTable(users) {
+    const tbody = document.getElementById('user-table-body');
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="um-td" style="text-align:center;color:#a0aec0">ユーザーが見つかりません</td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(u => {
+      const roleBadge = u.role === 'admin'
+        ? '<span class="admin-badge">ADMIN</span>'
+        : '<span style="font-size:0.78rem;color:#718096">個人</span>';
+      const confirmed = u.email_confirmed
+        ? '<span style="color:#276749;font-weight:600">確認済</span>'
+        : '<span style="color:#c53030">未確認</span>';
+      const isSelf = u.id === currentUser?.id;
+      const created = new Date(u.created_at).toLocaleDateString('ja-JP');
+      const selfLabel = isSelf ? ' <span style="font-size:0.7rem;color:#4299e1">(自分)</span>' : '';
+      return `<tr style="${isSelf ? 'background:#f0f7ff' : ''}">
+        <td class="um-td">${escHtml(u.email)}${selfLabel}</td>
+        <td class="um-td">${escHtml(u.name || '（未設定）')}</td>
+        <td class="um-td">${roleBadge}</td>
+        <td class="um-td" style="color:#718096;font-size:0.82rem">${created}</td>
+        <td class="um-td">${confirmed}</td>
+        <td class="um-td" style="white-space:nowrap">
+          <button class="btn-save-row" onclick="resetUserPassword('${escHtml(u.email)}')">リセット送信</button>
+          ${isSelf ? '' : `<button class="btn-delete" style="margin-left:4px" onclick="deleteUser('${u.id}','${escHtml(u.email)}')">削除</button>`}
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function addUser() {
+    if (!adminSb) {
+      showToast('ユーザー作成にはサービスロールキーが必要です', true);
+      document.getElementById('svc-key-details').open = true;
+      return;
+    }
+    const email    = document.getElementById('new-user-email').value.trim();
+    const password = document.getElementById('new-user-pass').value;
+    const role     = document.getElementById('new-user-role').value;
+    const msgEl    = document.getElementById('add-user-msg');
+
+    if (!email || !password) { msgEl.textContent = 'メールとパスワードを入力してください'; msgEl.style.color = '#c53030'; return; }
+    if (password.length < 8)  { msgEl.textContent = 'パスワードは8文字以上にしてください'; msgEl.style.color = '#c53030'; return; }
+
+    msgEl.textContent = '追加中...'; msgEl.style.color = '#718096';
+    try {
+      const { error } = await adminSb.auth.admin.createUser({
+        email, password,
+        user_metadata: { role },
+        email_confirm: true
+      });
+      if (error) throw error;
+      msgEl.textContent = `${email} を追加しました`; msgEl.style.color = '#276749';
+      document.getElementById('new-user-email').value = '';
+      document.getElementById('new-user-pass').value = '';
+      document.getElementById('add-user-details').open = false;
+      loadUsers();
+    } catch (e) {
+      console.error('[UserMgmt] addUser error:', e);
+      msgEl.textContent = '失敗: ' + e.message; msgEl.style.color = '#c53030';
+    }
+  }
+
+  async function resetUserPassword(email) {
+    if (!confirm(`${email} にパスワードリセットメールを送信しますか？`)) return;
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.href.split('?')[0]
+    });
+    if (error) { showToast('送信失敗: ' + error.message, true); }
+    else        { showToast(`${email} にリセットメールを送信しました`); }
+  }
+
+  async function deleteUser(userId, email) {
+    if (!adminSb) {
+      showToast('ユーザー削除にはサービスロールキーが必要です', true);
+      document.getElementById('svc-key-details').open = true;
+      return;
+    }
+    if (!confirm(`${email} を削除しますか？\nこの操作は取り消せません。`)) return;
+    const { error } = await adminSb.auth.admin.deleteUser(userId);
+    if (error) { showToast('削除失敗: ' + error.message, true); }
+    else        { showToast(`${email} を削除しました`); loadUsers(); }
   }
 
   async function doChangePw() {
