@@ -2169,7 +2169,12 @@ function dlPDF() {
 
   function initAdminClient(key) {
     adminSb = supabase.createClient(SUPABASE_URL, key, {
-      auth: { autoRefreshToken: false, persistSession: false }
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+        storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+      }
     });
   }
 
