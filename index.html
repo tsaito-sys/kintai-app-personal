@@ -796,8 +796,8 @@
             return;
           }
 
-          const { data: profile, error: profileErr } = await sb.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
-          if (profileErr) throw profileErr;
+          const { data: rows } = await sb.from('profiles').select('*').eq('id', currentUser.id);
+          const profile = rows?.[0] ?? null;
           if (!profile) { showScreen('profile'); return; }
 
           currentProfile = profile;
