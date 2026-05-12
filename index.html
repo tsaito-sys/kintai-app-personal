@@ -768,54 +768,77 @@
     try {
       sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      sb.auth.onAuthStateChange(async (event, session) => {
-        try {
-          currentUser = session?.user || null;
-          currentRole = currentUser?.user_metadata?.role || 'user';
+      // コールバックは同期関数にする。
+      // Supabase JS v2 は async コールバックを内部で await するため、
+      // async にすると signInWithPassword が DB 問い合わせ完了まで
+      // resolve されず「ログイン中...」で固まる。
+      sb.auth.onAuthStateChange((event, session) => {
+        console.log('[Auth] event:', event, '/ user:', session?.user?.email ?? '(none)');
 
-          if (!currentUser) {
-            showScreen('login');
-            document.getElementById('header-user').style.display = 'none';
-            document.getElementById('status-dot').classList.remove('connected');
-            document.getElementById('status-label').textContent = '未接続';
-            records = [];
-            return;
-          }
+        currentUser = session?.user || null;
+        currentRole = currentUser?.user_metadata?.role || 'user';
 
-          document.getElementById('status-dot').classList.add('connected');
-          document.getElementById('status-label').textContent = '接続済み';
+        if (!currentUser) {
+          console.log('[Auth] No session – showing login screen');
+          showScreen('login');
+          document.getElementById('header-user').style.display = 'none';
+          document.getElementById('status-dot').classList.remove('connected');
+          document.getElementById('status-label').textContent = '未接続';
+          records = [];
+          return;
+        }
 
-          if (currentRole === 'admin') {
-            const { data: profiles } = await sb.from('profiles').select('*');
-            allProfiles = {};
-            (profiles || []).forEach(p => { allProfiles[p.id] = p.name; });
-            currentProfile = { id: currentUser.id, name: '管理者' };
-            applyRoleUI();
-            showScreen('main');
-            loadRecords();
-            return;
-          }
+        console.log('[Auth] role:', currentRole);
+        document.getElementById('status-dot').classList.add('connected');
+        document.getElementById('status-label').textContent = '接続済み';
 
-          const { data: rows } = await sb.from('profiles').select('*').eq('id', currentUser.id);
-          const profile = rows?.[0] ?? null;
-          if (!profile) { showScreen('profile'); return; }
-
-          currentProfile = profile;
-          applyRoleUI();
-          showScreen('main');
-          loadRecords();
-        } catch (e) {
-          console.error('Auth error:', e);
+        // 非同期処理は別関数で独立実行（コールバックをブロックしない）
+        setupAuthenticatedUser().catch(e => {
+          console.error('[Auth] setupAuthenticatedUser error:', e);
           showToast('エラーが発生しました: ' + (e.message || e), true);
           showScreen('login');
-        }
+        });
       });
 
     } catch (e) {
       showToast('Supabase接続エラー: ' + e.message, true);
-      console.error('Supabase init error:', e);
+      console.error('[Auth] Supabase init error:', e);
     }
   })();
+
+  async function setupAuthenticatedUser() {
+    console.log('[Auth] setupAuthenticatedUser start, role:', currentRole);
+
+    if (currentRole === 'admin') {
+      console.log('[Auth] Admin – fetching all profiles');
+      const { data: profiles, error: pErr } = await sb.from('profiles').select('*');
+      console.log('[Auth] profiles result – count:', profiles?.length ?? 0, '/ error:', pErr?.message ?? 'none');
+      allProfiles = {};
+      (profiles || []).forEach(p => { allProfiles[p.id] = p.name; });
+      currentProfile = { id: currentUser.id, name: '管理者' };
+      applyRoleUI();
+      showScreen('main');
+      loadRecords();
+      return;
+    }
+
+    console.log('[Auth] Individual – fetching profile id:', currentUser.id);
+    const { data: rows, error: pErr } = await sb.from('profiles').select('*').eq('id', currentUser.id);
+    console.log('[Auth] profile result – rows:', JSON.stringify(rows), '/ error:', pErr?.message ?? 'none');
+    const profile = rows?.[0] ?? null;
+
+    if (!profile) {
+      console.log('[Auth] No profile – showing profile setup screen');
+      showScreen('profile');
+      return;
+    }
+
+    console.log('[Auth] Profile found:', profile.name, '– showing main screen');
+    currentProfile = profile;
+    applyRoleUI();
+    showScreen('main');
+    loadRecords();
+  }
 
   // ─── 勤怠追加行 ───────────────────────────────────────────
   function addRecordRow() {
@@ -1857,18 +1880,28 @@ function dlPDF() {
     errEl.textContent = '';
     const btn = document.querySelector('#login-screen .btn-primary');
     btn.disabled = true; btn.textContent = 'ログイン中...';
+    console.log('[Login] Attempting login for:', email);
 
     try {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('接続がタイムアウトしました（15秒）')), 15000)
+      );
+      const { error } = await Promise.race([
+        sb.auth.signInWithPassword({ email, password }),
+        timeout
+      ]);
+      console.log('[Login] signInWithPassword done – error:', error?.message ?? 'none');
       if (error) {
         errEl.textContent = error.message === 'Invalid login credentials'
           ? 'メールアドレスまたはパスワードが違います'
           : 'ログインに失敗しました: ' + error.message;
       }
     } catch (e) {
-      errEl.textContent = 'ネットワークエラーが発生しました: ' + e.message;
+      console.error('[Login] Exception:', e);
+      errEl.textContent = e.message || 'ログインに失敗しました';
     } finally {
       btn.disabled = false; btn.textContent = 'ログイン';
+      console.log('[Login] Button reset');
     }
   }
 
