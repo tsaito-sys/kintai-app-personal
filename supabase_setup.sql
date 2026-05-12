@@ -110,12 +110,12 @@ BEGIN
 
   RETURN QUERY
   SELECT
-    au.id,
-    au.email,
-    p.name,
-    COALESCE(au.raw_user_meta_data ->> 'role', 'user'),
-    au.created_at,
-    (au.email_confirmed_at IS NOT NULL)
+    au.id::uuid,
+    au.email::text,
+    p.name::text,
+    COALESCE(au.raw_user_meta_data ->> 'role', 'user')::text,
+    au.created_at::timestamptz,
+    (au.email_confirmed_at IS NOT NULL)::bool
   FROM auth.users au
   LEFT JOIN public.profiles p ON p.id = au.id
   ORDER BY au.created_at;
