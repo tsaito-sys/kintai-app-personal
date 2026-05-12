@@ -1861,9 +1861,14 @@ function dlPDF() {
   }
 
   async function doLogout() {
-    if (!confirm('ログアウトしますか？')) return;
-    await sb.auth.signOut();
+    const { error } = await sb.auth.signOut();
+    if (error) { showToast('ログアウトに失敗しました: ' + error.message, true); return; }
     currentUser = null; currentRole = 'user'; currentProfile = null; allProfiles = {};
+    records = [];
+    document.getElementById('header-user').style.display = 'none';
+    document.getElementById('status-dot').classList.remove('connected');
+    document.getElementById('status-label').textContent = '未接続';
+    showScreen('login');
   }
 
   async function saveProfile() {
