@@ -564,6 +564,12 @@
         <label>終了日</label>
         <input type="date" id="filter-to" onchange="loadRecords()" />
       </div>
+      <div class="form-group" id="filter-user-group" style="display:none">
+        <label>ユーザー</label>
+        <select id="filter-user" onchange="loadRecords()"
+          style="padding:9px 12px;border:1px solid #cbd5e0;border-radius:8px;font-size:0.9rem;background:#f7fafc;color:#2d3748;min-width:120px">
+        </select>
+      </div>
       <button class="btn btn-secondary" onclick="clearFilter()">リセット</button>
       <button class="btn btn-success" id="btn-csv" onclick="exportCSV()">CSVエクスポート</button>
     </div>
@@ -886,10 +892,11 @@
     document.getElementById('header-username').innerHTML = isAdmin
       ? '管理者<span class="admin-badge">ADMIN</span>'
       : escHtml(currentProfile?.name || currentUser?.email || '');
-    document.getElementById('section-top-card').style.display = isAdmin ? 'none' : '';
-    document.getElementById('section-invoice').style.display  = isAdmin ? 'none' : '';
-    document.getElementById('btn-add-record').style.display   = isAdmin ? 'none' : '';
-    document.getElementById('btn-user-mgmt').style.display    = isAdmin ? ''     : 'none';
+    document.getElementById('section-top-card').style.display  = isAdmin ? 'none' : '';
+    document.getElementById('section-invoice').style.display   = isAdmin ? 'none' : '';
+    document.getElementById('btn-add-record').style.display    = isAdmin ? 'none' : '';
+    document.getElementById('btn-user-mgmt').style.display     = isAdmin ? ''     : 'none';
+    document.getElementById('filter-user-group').style.display = isAdmin ? ''     : 'none';
   }
 
   // ─── 認証初期化 ───────────────────────────────────────────
@@ -954,6 +961,7 @@
       (profiles || []).forEach(p => { allProfiles[p.id] = p.name; });
       currentProfile = { id: currentUser.id, name: '管理者' };
       applyRoleUI();
+      populateUserFilter(profiles || []);
       showScreen('main');
       loadRecords();
       return;
@@ -1074,16 +1082,16 @@
     let query = sb.from(TABLE).select('*').order('date', { ascending: true });
     query = query.gte('date', from).lte('date', to);
 
+    // 管理者: 選択ユーザーで絞り込み
+    if (currentRole === 'admin') {
+      const selectedUserId = document.getElementById('filter-user').value;
+      if (selectedUserId) query = query.eq('user_id', selectedUserId);
+    }
+
     const { data, error } = await query;
     if (error) { showToast('取得失敗: ' + error.message, true); return; }
 
     records = data || [];
-
-    if (currentRole === 'admin' && records.length > 0) {
-      const { data: profiles } = await sb.from('profiles').select('*');
-      allProfiles = {};
-      (profiles || []).forEach(p => { allProfiles[p.id] = p.name; });
-    }
 
     renderTable(records);
     renderSummary(records);
@@ -1212,7 +1220,8 @@
         ((r.work_min ?? 0) / 60).toFixed(2),
         (r.memo || '').replace(/"/g, '""')
       ].map(v => `"${v}"`).join(','));
-      namePrefix = '全ユーザー';
+      const selectedUserId = document.getElementById('filter-user').value;
+      namePrefix = selectedUserId ? (allProfiles[selectedUserId] || '不明') : '全ユーザー';
     } else {
       header = ['日付', '出勤時間', '退勤時間', '休憩(分)', '労働時間(時間)', '作業内容・メモ'];
       rows = records.map(r => [
@@ -1245,6 +1254,26 @@
   }
 
   // ─── ユーティリティ ────────────────────────────────────────
+  function populateUserFilter(profiles) {
+    const sel = document.getElementById('filter-user');
+    if (!sel) return;
+    const prevValue = sel.value;
+    const sorted = [...profiles].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    sel.innerHTML = '';
+    sorted.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+    // 以前の選択を維持、なければ先頭を選択
+    if (prevValue && sorted.some(p => p.id === prevValue)) {
+      sel.value = prevValue;
+    } else if (sorted.length > 0) {
+      sel.value = sorted[0].id;
+    }
+  }
+
   function clearFilter() {
     document.getElementById('filter-from').value = '';
     document.getElementById('filter-to').value = '';
