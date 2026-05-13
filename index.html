@@ -345,8 +345,17 @@
     }
     .um-panel {
       background: white; border-radius: 12px;
-      padding: 28px; max-width: 920px; margin: 0 auto;
+      max-width: 920px; margin: 0 auto;
+      overflow: hidden;
     }
+    .um-panel-header {
+      position: sticky; top: 0;
+      background: white; z-index: 1;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 28px 16px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .um-panel-body { padding: 20px 28px 28px; }
     .um-panel h2 {
       font-size: 1.1rem; font-weight: 700; color: #2b6cb0;
       margin: 0; border: none; padding: 0;
@@ -750,14 +759,15 @@
 </div><!-- /#main-app -->
 
 <!-- ─── ユーザー管理モーダル ─── -->
-<div id="user-mgmt-modal" style="display:none">
+<div id="user-mgmt-modal" style="display:none" onclick="if(event.target===this)closeUserMgmt()">
   <div class="um-panel">
 
-    <!-- タイトル -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+    <!-- タイトル（sticky） -->
+    <div class="um-panel-header">
       <h2>ユーザー管理</h2>
       <button class="btn btn-secondary" onclick="closeUserMgmt()">× 閉じる</button>
     </div>
+    <div class="um-panel-body">
 
     <!-- サービスロールキー設定（作成・削除に必要） -->
     <details class="um-svckey-box" id="svc-key-details">
@@ -830,6 +840,7 @@
       </div>
     </div>
 
+    </div><!-- /.um-panel-body -->
   </div>
 </div>
 
@@ -1259,6 +1270,13 @@
     URL.revokeObjectURL(url);
     showToast('CSVをエクスポートしました');
   }
+
+  // ─── モーダル Escape キー ────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    closeUserMgmt();
+    document.getElementById('pw-modal').style.display = 'none';
+  });
 
   // ─── ユーティリティ ────────────────────────────────────────
   function populateUserFilter(profiles) {
