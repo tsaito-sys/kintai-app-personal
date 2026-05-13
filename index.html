@@ -782,18 +782,18 @@
     <details class="um-add-box" id="add-user-details">
       <summary>＋ 新規ユーザーを追加</summary>
       <div class="um-add-body">
-        <div class="form-grid" style="grid-template-columns:1fr 1fr auto">
+        <div style="display:flex;flex-direction:column;gap:12px;max-width:480px">
           <div class="form-group">
             <label>メールアドレス</label>
-            <input type="email" id="new-user-email" placeholder="user@example.com" />
+            <input type="email" id="new-user-email" placeholder="user@example.com" autocomplete="off" />
           </div>
           <div class="form-group">
             <label>仮パスワード（8文字以上）</label>
-            <input type="password" id="new-user-pass" placeholder="8文字以上" />
+            <input type="text" id="new-user-pass" placeholder="8文字以上" autocomplete="new-password" />
           </div>
           <div class="form-group">
             <label>ロール</label>
-            <select id="new-user-role" style="padding:9px 12px;border:1px solid #cbd5e0;border-radius:8px;font-size:0.9rem;background:#f7fafc;color:#2d3748">
+            <select id="new-user-role" style="padding:9px 12px;border:1px solid #cbd5e0;border-radius:8px;font-size:0.9rem;background:#f7fafc;color:#2d3748;width:100%">
               <option value="user">個人ユーザー</option>
               <option value="admin">管理者</option>
             </select>
