@@ -820,7 +820,6 @@
               <th class="um-th">名前</th>
               <th class="um-th">ロール</th>
               <th class="um-th">作成日</th>
-              <th class="um-th">メール確認</th>
               <th class="um-th">操作</th>
             </tr>
           </thead>
@@ -2205,9 +2204,6 @@ function dlPDF() {
       const roleBadge = u.role === 'admin'
         ? '<span class="admin-badge">ADMIN</span>'
         : '<span style="font-size:0.78rem;color:#718096">個人</span>';
-      const confirmed = u.email_confirmed
-        ? '<span style="color:#276749;font-weight:600">確認済</span>'
-        : '<span style="color:#c53030">未確認</span>';
       const isSelf = u.id === currentUser?.id;
       const created = new Date(u.created_at).toLocaleDateString('ja-JP');
       const selfLabel = isSelf ? ' <span style="font-size:0.7rem;color:#4299e1">(自分)</span>' : '';
@@ -2216,7 +2212,6 @@ function dlPDF() {
         <td class="um-td">${escHtml(u.name || '（未設定）')}</td>
         <td class="um-td">${roleBadge}</td>
         <td class="um-td" style="color:#718096;font-size:0.82rem">${created}</td>
-        <td class="um-td">${confirmed}</td>
         <td class="um-td" style="white-space:nowrap">
           <button class="btn-save-row" onclick="resetUserPassword('${escHtml(u.email)}')">リセット送信</button>
           ${isSelf ? '' : `<button class="btn-delete" style="margin-left:4px" onclick="deleteUser('${u.id}','${escHtml(u.email)}')">削除</button>`}
