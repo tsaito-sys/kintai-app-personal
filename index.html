@@ -999,6 +999,7 @@
     console.log('[Auth] Profile found:', profile.name, '– showing main screen');
     currentProfile = profile;
     applyRoleUI();
+    applyInvoiceProfileToForm(profile);
     showScreen('main');
     loadRecords();
   }
@@ -1739,22 +1740,84 @@
   }
 
   // ─── 請求書作成 ───────────────────────────────────────────
-  const INV_SETTINGS_MAP = {
-    invNoSeq: 'inv-invno-seq',
-    issuer: 'inv-issuer', client: 'inv-client', rate: 'inv-rate', taxRate: 'inv-tax', mainTaxable: 'inv-main-taxable',
-    zip: 'inv-zip', address: 'inv-address', tel: 'inv-tel', email: 'inv-email',
-    invoiceReg: 'inv-invoice-reg',
-    bank: 'inv-bank', branch: 'inv-branch', branchNo: 'inv-branch-no',
-    accountType: 'inv-account-type', accountNo: 'inv-account-no', accountName: 'inv-account-name'
+  // ユーザー固有（Supabaseに保存）: 発行者情報・振込先・時給単価
+  const INV_PROFILE_MAP = {
+    issuer:      'inv-issuer',
+    zip:         'inv-zip',
+    address:     'inv-address',
+    tel:         'inv-tel',
+    email:       'inv-email',
+    invoiceReg:  'inv-invoice-reg',
+    rate:        'inv-rate',
+    bank:        'inv-bank',
+    branch:      'inv-branch',
+    branchNo:    'inv-branch-no',
+    accountType: 'inv-account-type',
+    accountNo:   'inv-account-no',
+    accountName: 'inv-account-name'
   };
 
-  function saveInvoiceSettingsToStorage() {
+  // 請求書ごと（localStorageに保存）: 請求先・税率・請求書番号など
+  const INV_LOCAL_MAP = {
+    invNoSeq:    'inv-invno-seq',
+    client:      'inv-client',
+    taxRate:     'inv-tax',
+    mainTaxable: 'inv-main-taxable'
+  };
+
+  // Supabase カラム名との対応（スネークケース）
+  const PROFILE_COL = {
+    issuer:      'inv_issuer',
+    zip:         'inv_zip',
+    address:     'inv_address',
+    tel:         'inv_tel',
+    email:       'inv_email',
+    invoiceReg:  'inv_invoice_reg',
+    rate:        'inv_rate',
+    bank:        'inv_bank',
+    branch:      'inv_branch',
+    branchNo:    'inv_branch_no',
+    accountType: 'inv_account_type',
+    accountNo:   'inv_account_no',
+    accountName: 'inv_account_name'
+  };
+
+  // プロフィールデータから請求書フォームに値を反映
+  function applyInvoiceProfileToForm(profile) {
+    for (const [key, elId] of Object.entries(INV_PROFILE_MAP)) {
+      const col = PROFILE_COL[key];
+      const val = profile?.[col];
+      const el  = document.getElementById(elId);
+      if (el && val != null) el.value = val;
+    }
+  }
+
+  // フォームの値を Supabase の profiles テーブルに保存（デバウンス付き）
+  let invSaveTimer = null;
+  function scheduleInvProfileSave() {
+    clearTimeout(invSaveTimer);
+    invSaveTimer = setTimeout(saveInvProfileToSupabase, 1500);
+  }
+
+  async function saveInvProfileToSupabase() {
+    if (!sb || !currentUser || currentRole === 'admin') return;
+    const updates = {};
+    for (const [key, elId] of Object.entries(INV_PROFILE_MAP)) {
+      const el = document.getElementById(elId);
+      if (el) updates[PROFILE_COL[key]] = el.value.trim() || null;
+    }
+    const { error } = await sb.from('profiles').update(updates).eq('id', currentUser.id);
+    if (error) console.error('[InvSettings] save error:', error.message);
+  }
+
+  function saveLocalInvSettings() {
     const s = {};
-    for (const [key, id] of Object.entries(INV_SETTINGS_MAP)) {
+    for (const [key, id] of Object.entries(INV_LOCAL_MAP)) {
       const el = document.getElementById(id);
       if (el) s[key] = el.value;
     }
-    localStorage.setItem('invoice_settings', JSON.stringify(s));
+    s.dueDate = document.getElementById('inv-due-date').value;
+    localStorage.setItem('invoice_settings_local', JSON.stringify(s));
   }
 
   function updateInvNoPrefix() {
@@ -1763,26 +1826,37 @@
     document.getElementById('inv-invno-prefix').textContent = prefix;
   }
 
-  (function loadInvoiceSettings() {
-    const s = JSON.parse(localStorage.getItem('invoice_settings') || '{}');
-    for (const [key, id] of Object.entries(INV_SETTINGS_MAP)) {
-      if (s[key] != null) { const el = document.getElementById(id); if (el) el.value = s[key]; }
-    }
+  (function initInvoiceForm() {
+    // 日付系は常に今月で初期化
     const now      = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('sv');
     const lastDay  = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('sv');
     const dueDay   = new Date(now.getFullYear(), now.getMonth() + 2, 0).toLocaleDateString('sv');
     document.getElementById('inv-date').value     = now.toLocaleDateString('sv');
-    document.getElementById('inv-due-date').value = s.dueDate || dueDay;
     document.getElementById('inv-from').value     = firstDay;
     document.getElementById('inv-to').value       = lastDay;
+
+    // localStorageから請求書ごとの設定を復元
+    const local = JSON.parse(localStorage.getItem('invoice_settings_local') || '{}');
+    for (const [key, id] of Object.entries(INV_LOCAL_MAP)) {
+      if (local[key] != null) { const el = document.getElementById(id); if (el) el.value = local[key]; }
+    }
+    document.getElementById('inv-due-date').value = local.dueDate || dueDay;
+
     updateInvNoPrefix();
     document.getElementById('inv-from').addEventListener('change', updateInvNoPrefix);
 
-    // 入力変更時に自動保存
-    for (const id of Object.values(INV_SETTINGS_MAP)) {
+    // 請求書ごとの設定はlocalStorageへ自動保存
+    for (const id of Object.values(INV_LOCAL_MAP)) {
       const el = document.getElementById(id);
-      if (el) el.addEventListener('change', saveInvoiceSettingsToStorage);
+      if (el) el.addEventListener('change', saveLocalInvSettings);
+    }
+    document.getElementById('inv-due-date').addEventListener('change', saveLocalInvSettings);
+
+    // ユーザー固有設定はSupabaseへ自動保存（デバウンス）
+    for (const id of Object.values(INV_PROFILE_MAP)) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', scheduleInvProfileSave);
     }
   })();
 
@@ -1821,10 +1895,8 @@
     if (!win) { showToast('ポップアップがブロックされました。許可してください', true, 5000); return; }
     win.document.write('<html><body style="font-family:sans-serif;padding:40px;color:#666">データを読み込み中...</body></html>');
 
-    localStorage.setItem('invoice_settings', JSON.stringify({
-      issuer, client, rate, taxRate, zip, address, tel, email, invoiceReg, note,
-      bank, branch, branchNo, accountType, accountNo, accountName, dueDate
-    }));
+    saveLocalInvSettings();
+    saveInvProfileToSupabase();
 
     const { data, error } = await sb.from(TABLE).select('*')
       .gte('date', from).lte('date', to).order('date', { ascending: true });

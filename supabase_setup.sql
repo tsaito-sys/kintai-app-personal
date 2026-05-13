@@ -86,7 +86,25 @@ CREATE POLICY "profiles_update" ON profiles FOR UPDATE USING (
 -- ============================================================
 
 -- ============================================================
--- 7. ユーザー管理画面用 SQL 関数（管理者がユーザー一覧を取得）
+-- 7. profiles テーブルに請求書設定カラムを追加
+--    ユーザーごとに発行者情報・振込先情報・時給単価を保存する
+-- ============================================================
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_issuer       text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_zip          text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_address      text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_tel          text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_email        text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_invoice_reg  text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_rate         integer;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_bank         text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_branch       text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_branch_no    text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_account_type text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_account_no   text;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inv_account_name text;
+
+-- ============================================================
+-- 8. ユーザー管理画面用 SQL 関数（管理者がユーザー一覧を取得）
 --    ※ この関数を実行しないとユーザー管理画面の一覧が表示されません
 -- ============================================================
 CREATE OR REPLACE FUNCTION list_users_for_admin()
