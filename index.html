@@ -360,18 +360,7 @@
       font-size: 1.1rem; font-weight: 700; color: #2b6cb0;
       margin: 0; border: none; padding: 0;
     }
-    .um-svckey-box {
-      background: #fffbeb; border: 1px solid #f59e0b;
-      border-radius: 8px; padding: 14px; margin-bottom: 20px;
-    }
-    .um-svckey-box summary {
-      cursor: pointer; font-size: 0.85rem; font-weight: 600;
-      color: #92400e; list-style: none;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .um-svckey-body { margin-top: 12px; }
-    .um-svckey-body p { font-size: 0.78rem; color: #92400e; margin-bottom: 8px; line-height: 1.6; }
-    .um-add-box {
+.um-add-box {
       border: 1px solid #e2e8f0; border-radius: 8px;
       margin-bottom: 20px; overflow: hidden;
     }
@@ -768,25 +757,6 @@
       <button class="btn btn-secondary" onclick="closeUserMgmt()">× 閉じる</button>
     </div>
     <div class="um-panel-body">
-
-    <!-- サービスロールキー設定（作成・削除に必要） -->
-    <details class="um-svckey-box" id="svc-key-details">
-      <summary>
-        <span>⚙️ ユーザー作成・削除の設定（サービスロールキー）</span>
-        <span id="svc-key-indicator" style="font-size:0.75rem;padding:2px 8px;border-radius:10px;background:#fef3c7;color:#92400e">未設定</span>
-      </summary>
-      <div class="um-svckey-body">
-        <p>Supabase Dashboard → Project Settings → API → <strong>service_role</strong> キーを入力してください。<br>
-          このキーはブラウザのセッション中のみ保持され、このページのSupabase接続にのみ使用されます。</p>
-        <div style="display:flex;gap:8px">
-          <input type="password" id="svc-key-input" placeholder="eyJh..."
-            style="flex:1;padding:8px 12px;border:1px solid #cbd5e0;border-radius:8px;font-size:0.85rem;background:white"
-            onkeydown="if(event.key==='Enter')setSvcKey()" />
-          <button class="btn btn-primary" onclick="setSvcKey()">設定</button>
-          <button class="btn btn-secondary" onclick="clearSvcKey()">クリア</button>
-        </div>
-      </div>
-    </details>
 
     <!-- 新規ユーザー追加 -->
     <details class="um-add-box" id="add-user-details">
@@ -2218,53 +2188,31 @@ function dlPDF() {
   }
 
   // ─── ユーザー管理 ────────────────────────────────────────
-  let adminSb = null;
+  // サービスロールキーは Edge Function 側で管理（ブラウザ非公開）
+  const ADMIN_FUNC_URL = `${SUPABASE_URL}/functions/v1/admin-user`;
+
+  async function callAdminFunc(action, params = {}) {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(ADMIN_FUNC_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, ...params }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+    return json;
+  }
 
   function showUserMgmt() {
     document.getElementById('user-mgmt-modal').style.display = 'block';
-    const savedKey = sessionStorage.getItem('svc_role_key');
-    if (savedKey) {
-      if (!adminSb) initAdminClient(savedKey);
-      document.getElementById('svc-key-indicator').textContent = '設定済み ✓';
-      document.getElementById('svc-key-indicator').style.background = '#d1fae5';
-      document.getElementById('svc-key-indicator').style.color = '#065f46';
-    }
     loadUsers();
   }
 
   function closeUserMgmt() {
     document.getElementById('user-mgmt-modal').style.display = 'none';
-  }
-
-  function setSvcKey() {
-    const key = document.getElementById('svc-key-input').value.trim();
-    if (!key) { showToast('キーを入力してください', true); return; }
-    sessionStorage.setItem('svc_role_key', key);
-    document.getElementById('svc-key-input').value = '';
-    const ind = document.getElementById('svc-key-indicator');
-    ind.textContent = '設定済み ✓'; ind.style.background = '#d1fae5'; ind.style.color = '#065f46';
-    document.getElementById('svc-key-details').open = false;
-    initAdminClient(key);
-    showToast('サービスロールキーを設定しました（このセッション中のみ有効）');
-  }
-
-  function clearSvcKey() {
-    sessionStorage.removeItem('svc_role_key');
-    adminSb = null;
-    const ind = document.getElementById('svc-key-indicator');
-    ind.textContent = '未設定'; ind.style.background = '#fef3c7'; ind.style.color = '#92400e';
-    showToast('サービスロールキーをクリアしました');
-  }
-
-  function initAdminClient(key) {
-    adminSb = supabase.createClient(SUPABASE_URL, key, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-        storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} }
-      }
-    });
   }
 
   async function loadUsers() {
@@ -2311,11 +2259,6 @@ function dlPDF() {
   }
 
   async function addUser() {
-    if (!adminSb) {
-      showToast('ユーザー作成にはサービスロールキーが必要です', true);
-      document.getElementById('svc-key-details').open = true;
-      return;
-    }
     const email    = document.getElementById('new-user-email').value.trim();
     const password = document.getElementById('new-user-pass').value;
     const role     = document.getElementById('new-user-role').value;
@@ -2326,12 +2269,7 @@ function dlPDF() {
 
     msgEl.textContent = '追加中...'; msgEl.style.color = '#718096';
     try {
-      const { error } = await adminSb.auth.admin.createUser({
-        email, password,
-        user_metadata: { role },
-        email_confirm: true
-      });
-      if (error) throw error;
+      await callAdminFunc('create', { email, password, role });
       msgEl.textContent = `${email} を追加しました`; msgEl.style.color = '#276749';
       document.getElementById('new-user-email').value = '';
       document.getElementById('new-user-pass').value = '';
@@ -2353,15 +2291,14 @@ function dlPDF() {
   }
 
   async function deleteUser(userId, email) {
-    if (!adminSb) {
-      showToast('ユーザー削除にはサービスロールキーが必要です', true);
-      document.getElementById('svc-key-details').open = true;
-      return;
-    }
     if (!confirm(`${email} を削除しますか？\nこの操作は取り消せません。`)) return;
-    const { error } = await adminSb.auth.admin.deleteUser(userId);
-    if (error) { showToast('削除失敗: ' + error.message, true); }
-    else        { showToast(`${email} を削除しました`); loadUsers(); }
+    try {
+      await callAdminFunc('delete', { user_id: userId });
+      showToast(`${email} を削除しました`);
+      loadUsers();
+    } catch (e) {
+      showToast('削除失敗: ' + e.message, true);
+    }
   }
 
   async function doChangePw() {
