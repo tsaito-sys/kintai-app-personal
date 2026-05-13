@@ -1177,8 +1177,8 @@
     const avgMin = Math.round(totalMin / days);
 
     document.getElementById('sum-days').textContent = days + ' 日';
-    document.getElementById('sum-hours').textContent = (totalMin / 60).toFixed(1) + ' h';
-    document.getElementById('sum-avg').textContent = (avgMin / 60).toFixed(1) + ' h';
+    document.getElementById('sum-hours').textContent = (totalMin / 60).toFixed(2) + ' h';
+    document.getElementById('sum-avg').textContent = (avgMin / 60).toFixed(2) + ' h';
     card.style.display = '';
   }
 
