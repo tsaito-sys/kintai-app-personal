@@ -2188,23 +2188,8 @@ function dlPDF() {
   }
 
   // ─── ユーザー管理 ────────────────────────────────────────
-  // サービスロールキーは Edge Function 側で管理（ブラウザ非公開）
-  const ADMIN_FUNC_URL = `${SUPABASE_URL}/functions/v1/admin-user`;
-
-  async function callAdminFunc(action, params = {}) {
-    const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(ADMIN_FUNC_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ action, ...params }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
-    return json;
-  }
+  // SECURITY DEFINER SQL 関数を使用
+  // サービスロールキー・Edge Function・Vault いずれも不要
 
   function showUserMgmt() {
     document.getElementById('user-mgmt-modal').style.display = 'block';
@@ -2269,7 +2254,8 @@ function dlPDF() {
 
     msgEl.textContent = '追加中...'; msgEl.style.color = '#718096';
     try {
-      await callAdminFunc('create', { email, password, role });
+      const { error } = await sb.rpc('admin_create_user', { p_email: email, p_password: password, p_role: role });
+      if (error) throw error;
       msgEl.textContent = `${email} を追加しました`; msgEl.style.color = '#276749';
       document.getElementById('new-user-email').value = '';
       document.getElementById('new-user-pass').value = '';
@@ -2292,13 +2278,10 @@ function dlPDF() {
 
   async function deleteUser(userId, email) {
     if (!confirm(`${email} を削除しますか？\nこの操作は取り消せません。`)) return;
-    try {
-      await callAdminFunc('delete', { user_id: userId });
-      showToast(`${email} を削除しました`);
-      loadUsers();
-    } catch (e) {
-      showToast('削除失敗: ' + e.message, true);
-    }
+    const { error } = await sb.rpc('admin_delete_user', { p_user_id: userId });
+    if (error) { showToast('削除失敗: ' + error.message, true); return; }
+    showToast(`${email} を削除しました`);
+    loadUsers();
   }
 
   async function doChangePw() {

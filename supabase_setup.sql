@@ -142,3 +142,83 @@ $$;
 
 -- 認証済みユーザーに実行権限を付与（RLS 内で管理者チェックあり）
 GRANT EXECUTE ON FUNCTION list_users_for_admin() TO authenticated;
+
+-- ============================================================
+-- 9. ユーザー作成・削除関数
+--    SECURITY DEFINER で postgres 権限で実行するため
+--    サービスロールキー・Edge Function・Vault いずれも不要
+-- ============================================================
+CREATE OR REPLACE FUNCTION admin_create_user(
+  p_email    text,
+  p_password text,
+  p_role     text DEFAULT 'user'
+)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_uid uuid := gen_random_uuid();
+BEGIN
+  IF (auth.jwt() -> 'user_metadata' ->> 'role') <> 'admin' THEN
+    RAISE EXCEPTION 'admin only';
+  END IF;
+
+  INSERT INTO auth.users (
+    id, aud, role, email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    created_at, updated_at
+  ) VALUES (
+    v_uid,
+    'authenticated',
+    'authenticated',
+    p_email,
+    extensions.crypt(p_password, extensions.gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    jsonb_build_object('role', p_role),
+    now(),
+    now()
+  );
+
+  RETURN jsonb_build_object('id', v_uid, 'email', p_email);
+EXCEPTION
+  WHEN unique_violation THEN
+    RAISE EXCEPTION 'このメールアドレスは既に使用されています: %', p_email;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION admin_create_user(text, text, text) TO authenticated;
+
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION admin_delete_user(p_user_id uuid)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF (auth.jwt() -> 'user_metadata' ->> 'role') <> 'admin' THEN
+    RAISE EXCEPTION 'admin only';
+  END IF;
+
+  IF p_user_id = auth.uid() THEN
+    RAISE EXCEPTION '自分自身は削除できません';
+  END IF;
+
+  DELETE FROM auth.users WHERE id = p_user_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'ユーザーが見つかりません';
+  END IF;
+
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION admin_delete_user(uuid) TO authenticated;
