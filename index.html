@@ -888,9 +888,10 @@
     const isAdmin = currentRole === 'admin';
     const headerUser = document.getElementById('header-user');
     headerUser.style.display = 'flex';
+    const displayName = escHtml(currentProfile?.name || currentUser?.email || '');
     document.getElementById('header-username').innerHTML = isAdmin
-      ? '管理者<span class="admin-badge">ADMIN</span>'
-      : escHtml(currentProfile?.name || currentUser?.email || '');
+      ? `${displayName}<span class="admin-badge">ADMIN</span>`
+      : displayName;
     document.getElementById('section-top-card').style.display  = isAdmin ? 'none' : '';
     document.getElementById('section-invoice').style.display   = isAdmin ? 'none' : '';
     document.getElementById('btn-add-record').style.display    = isAdmin ? 'none' : '';
@@ -2218,7 +2219,7 @@ function dlPDF() {
     btn.disabled = false; btn.textContent = '保存する';
     if (error) { errEl.textContent = '保存に失敗しました: ' + error.message; return; }
     currentProfile = { ...currentProfile, name };
-    document.getElementById('header-username').textContent = name;
+    applyRoleUI();
     document.getElementById('profile-edit-modal').style.display = 'none';
     showToast('プロフィールを更新しました');
   }
