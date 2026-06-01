@@ -2287,6 +2287,15 @@ function dlPDF() {
     }).join('');
   }
 
+  // Edge Functionのエラー時、本当のメッセージはレスポンスbody側に入ってる
+  async function extractFnError(error) {
+    try {
+      const body = await error.context.json();
+      if (body?.error) return body.error;
+    } catch (_) {}
+    return error.message || 'Edge Functionの呼び出しに失敗しました';
+  }
+
   async function addUser() {
     const email    = document.getElementById('new-user-email').value.trim();
     const password = document.getElementById('new-user-pass').value;
@@ -2298,8 +2307,10 @@ function dlPDF() {
 
     msgEl.textContent = '追加中...'; msgEl.style.color = '#718096';
     try {
-      const { error } = await sb.rpc('admin_create_user', { p_email: email, p_password: password, p_role: role });
-      if (error) throw error;
+      const { error } = await sb.functions.invoke('admin-user', {
+        body: { action: 'create', email, password, role }
+      });
+      if (error) throw new Error(await extractFnError(error));
       msgEl.textContent = `${email} を追加しました`; msgEl.style.color = '#276749';
       document.getElementById('new-user-email').value = '';
       document.getElementById('new-user-pass').value = '';
@@ -2322,8 +2333,10 @@ function dlPDF() {
 
   async function deleteUser(userId, email) {
     if (!confirm(`${email} を削除しますか？\nこの操作は取り消せません。`)) return;
-    const { error } = await sb.rpc('admin_delete_user', { p_user_id: userId });
-    if (error) { showToast('削除失敗: ' + error.message, true); return; }
+    const { error } = await sb.functions.invoke('admin-user', {
+      body: { action: 'delete', user_id: userId }
+    });
+    if (error) { showToast('削除失敗: ' + (await extractFnError(error)), true); return; }
     showToast(`${email} を削除しました`);
     loadUsers();
   }
