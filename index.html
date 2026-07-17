@@ -1454,7 +1454,7 @@
 
     for (const dateStr of dates) {
       const event = {
-        summary: '稼働予定',
+        summary: '事務所',
         start: { dateTime: `${dateStr}T09:00:00+09:00`, timeZone: 'Asia/Tokyo' },
         end:   { dateTime: `${dateStr}T17:00:00+09:00`, timeZone: 'Asia/Tokyo' }
       };
@@ -1570,8 +1570,8 @@
       }
 
       const data   = await res.json();
-      // タイトルに「稼働予定」を含むイベントのみ対象
-      const events = (data.items || []).filter(e => e.start?.dateTime && e.summary?.includes('稼働予定'));
+      // タイトルに「事務所」を含むイベントのみ対象
+      const events = (data.items || []).filter(e => e.start?.dateTime && e.summary?.includes('事務所'));
 
       // 日ごとにグループ化して最早出勤・最遅退勤を算出
       const byDay = {};
@@ -1625,7 +1625,7 @@
     const tbody   = document.getElementById('gcal-preview-body');
 
     if (!gcalPreviewData.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#a0aec0">「稼働予定」を含むイベントが見つかりませんでした</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#a0aec0">「事務所」を含むイベントが見つかりませんでした</td></tr>';
       preview.style.display = '';
       return;
     }
