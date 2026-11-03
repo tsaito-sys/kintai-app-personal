@@ -1697,7 +1697,7 @@
   }
 
   // ─── 追加明細行 ───────────────────────────────────────────
-  function addInvoiceRow() {
+  function addInvoiceRow(init = {}) {
     const inp = 'border:1px solid #cbd5e0;border-radius:4px;padding:5px 7px;font-size:0.85rem;background:#f7fafc;width:100%';
     const tbody = document.getElementById('inv-extra-rows');
     const tr = document.createElement('tr');
@@ -1713,7 +1713,12 @@
         <button type="button" onclick="this.closest('tr').remove()" style="background:none;border:none;color:#c53030;cursor:pointer;font-size:1.1rem;line-height:1">×</button>
       </td>
     `;
+    if (init.name  != null) tr.querySelector('.ei-name').value  = init.name;
+    if (init.qty   != null) tr.querySelector('.ei-qty').value   = init.qty;
+    if (init.price != null) tr.querySelector('.ei-price').value = init.price;
+    if (init.tax   != null) tr.querySelector('.ei-tax').value   = init.tax;
     tbody.appendChild(tr);
+    calcExtraRow(tr.querySelector('.ei-price'));
   }
 
   function updateExtraRowTaxType(select) {
@@ -1834,6 +1839,9 @@
     document.getElementById('inv-due-date').value = local.dueDate || dueDay;
 
     updateInvNoPrefix();
+
+    // 追加明細の初期値（交通費）。数量は都度手入力
+    addInvoiceRow({ name: '2．往復交通費（東急田園都市線　長津田～鷺沼）', price: 454, tax: 'non' });
     document.getElementById('inv-from').addEventListener('change', updateInvNoPrefix);
 
     // 請求書ごとの設定はlocalStorageへ自動保存
@@ -1927,9 +1935,10 @@
       bank, branch, branchNo, accountType, accountNo, accountName
     });
 
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
+    // about:blank への document.write だと「PDFに保存」のファイル名にタイトルが反映されないため、Blob URL で開く
+    const blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    win.location.href = blobUrl;
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   }
 
   function buildInvoiceHTML({ invNo, client, issuer, invDate, dueDate, from, to,
@@ -1947,9 +1956,10 @@
     const fromAddr = [zip ? `〒${h(zip)}` : '', h(address)].filter(Boolean).join('　');
     const bankLine = [h(bank), h(branch), branchNo?`（${h(branchNo)}）`:'', h(accountType), h(accountNo), h(accountName)].filter(Boolean).join('　');
 
-    const _fromDate = from ? new Date(from) : new Date(invDate || Date.now());
+    const [_fromY, _fromM] = (from || invDate).split('-').map(Number);
     const _issuerCompact = issuer.replace(/[ 　]/g, '');
-    const _pdfTitle = `【${_issuerCompact}】${_fromDate.getFullYear()}年${_fromDate.getMonth()+1}月分御請求書_${client}御中`;
+    const _clientName = client.replace(/[ 　]*御中$/, '');
+    const _pdfTitle = `【${_issuerCompact}】${_fromY}年${_fromM}月分ご請求書_${_clientName}`;
 
     const extraRows = (extraItems || []).map((item, i) => `
       <tr>
@@ -2028,7 +2038,7 @@
 <body>
 <div class="toolbar">
   <button class="tb-pdf" onclick="dlPDF()">PDFダウンロード</button>
-  <button class="tb-print" onclick="window.print()">印刷</button>
+  <button class="tb-print" onclick="dlPDF()">印刷</button>
   <span class="tb-label">請求書 ${h(invNo)}</span>
 </div>
 
@@ -2099,6 +2109,7 @@
 </div>
 
 <script>
+document.title = ${JSON.stringify(_pdfTitle)};
 function dlPDF() {
   document.title = ${JSON.stringify(_pdfTitle)};
   window.print();
@@ -2106,7 +2117,7 @@ function dlPDF() {
 <\/script>
 <div class="toolbar" style="margin-top:24px">
   <button class="tb-pdf" onclick="dlPDF()">PDFダウンロード</button>
-  <button class="tb-print" onclick="window.print()">印刷</button>
+  <button class="tb-print" onclick="dlPDF()">印刷</button>
 </div>
 </body></html>`;
   }
