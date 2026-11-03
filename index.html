@@ -972,6 +972,7 @@
       populateUserFilter(profiles || []);
       showScreen('main');
       loadRecords();
+      refreshWorkdaysQty({ force: false });
       return;
     }
 
@@ -992,6 +993,7 @@
     applyInvoiceProfileToForm(profile);
     showScreen('main');
     loadRecords();
+    refreshWorkdaysQty({ force: false });
   }
 
   // ─── 勤怠追加行 ───────────────────────────────────────────
@@ -1829,10 +1831,10 @@
   }
 
   (function initInvoiceForm() {
-    // 日付系は常に今月で初期化
+    // 請求日は今日、期間は前月1日〜前月末日で初期化
     const now      = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('sv');
-    const lastDay  = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('sv');
+    const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('sv');
+    const lastDay  = new Date(now.getFullYear(), now.getMonth(), 0).toLocaleDateString('sv');
     const dueDay   = new Date(now.getFullYear(), now.getMonth() + 2, 0).toLocaleDateString('sv');
     document.getElementById('inv-date').value     = now.toLocaleDateString('sv');
     document.getElementById('inv-from').value     = firstDay;
