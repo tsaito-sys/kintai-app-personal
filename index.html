@@ -1717,6 +1717,13 @@
     if (init.qty   != null) tr.querySelector('.ei-qty').value   = init.qty;
     if (init.price != null) tr.querySelector('.ei-price').value = init.price;
     if (init.tax   != null) tr.querySelector('.ei-tax').value   = init.tax;
+    if (init.autoWorkdays) {
+      // 数量に稼働日数を自動入力する行。手で入力した値は請求書作成時に上書きしない
+      tr.dataset.autoWorkdays = '1';
+      tr.querySelector('.ei-qty').addEventListener('input', e => {
+        tr.dataset.qtyManual = e.target.value.trim() !== '' ? '1' : '';
+      });
+    }
     tbody.appendChild(tr);
     calcExtraRow(tr.querySelector('.ei-price'));
   }
@@ -1841,8 +1848,15 @@
     updateInvNoPrefix();
 
     // 追加明細の初期値（交通費）。数量は都度手入力
-    addInvoiceRow({ name: '2．往復交通費（東急田園都市線　長津田～鷺沼）', price: 454, tax: 'non' });
+    addInvoiceRow({ name: '2．往復交通費（東急田園都市線　長津田～鷺沼）', price: 454, tax: 'non', autoWorkdays: true });
     document.getElementById('inv-from').addEventListener('change', updateInvNoPrefix);
+
+    // 請求日を変更したら期間を前月1日〜前月末日に自動設定
+    document.getElementById('inv-date').addEventListener('change', applyInvPeriodFromDate);
+
+    // 期間を変更したら交通費の数量（稼働日数）を数え直す
+    document.getElementById('inv-from').addEventListener('change', () => refreshWorkdaysQty({ force: true }));
+    document.getElementById('inv-to').addEventListener('change', () => refreshWorkdaysQty({ force: true }));
 
     // 請求書ごとの設定はlocalStorageへ自動保存
     for (const id of Object.values(INV_LOCAL_MAP)) {
@@ -1857,6 +1871,47 @@
       if (el) el.addEventListener('change', scheduleInvProfileSave);
     }
   })();
+
+  // 請求日の前月1日〜前月末日を期間に設定（請求書番号の YYYYMM も連動）
+  function applyInvPeriodFromDate() {
+    const invDate = document.getElementById('inv-date').value;
+    if (!invDate) return;
+    const [y, m] = invDate.split('-').map(Number);
+    document.getElementById('inv-from').value = new Date(y, m - 2, 1).toLocaleDateString('sv');
+    document.getElementById('inv-to').value   = new Date(y, m - 1, 0).toLocaleDateString('sv');
+    updateInvNoPrefix();
+    refreshWorkdaysQty({ force: true });
+  }
+
+  // 勤怠データの出勤日数（同じ日付は1日として数える）
+  function countWorkdays(records) {
+    return new Set(records.map(r => r.date)).size;
+  }
+
+  // 交通費行の数量に稼働日数を入れる。force=false のときは手入力した値を上書きしない
+  function setWorkdaysQty(days, { force }) {
+    document.querySelectorAll('#inv-extra-rows tr[data-auto-workdays="1"]').forEach(tr => {
+      if (!force && tr.dataset.qtyManual === '1') return;
+      const qty = tr.querySelector('.ei-qty');
+      qty.value = days;
+      tr.dataset.qtyManual = '';
+      calcExtraRow(qty);
+    });
+  }
+
+  // 期間変更時に稼働日数を数え直す
+  async function refreshWorkdaysQty({ force }) {
+    if (!sb) return;
+    if (!document.querySelector('#inv-extra-rows tr[data-auto-workdays="1"]')) return;
+    const from = document.getElementById('inv-from').value;
+    const to   = document.getElementById('inv-to').value;
+    if (!from || !to || from > to) return;
+    const { data, error } = await sb.from(TABLE).select('date').gte('date', from).lte('date', to);
+    if (error) { console.error('[Workdays] fetch error:', error.message); return; }
+    // 取得中に期間が変わっていたら反映しない
+    if (from !== document.getElementById('inv-from').value || to !== document.getElementById('inv-to').value) return;
+    setWorkdaysQty(countWorkdays(data || []), { force });
+  }
 
   async function generateInvoice() {
     if (!sb) { showToast('データベースに接続されていません', true); return; }
@@ -1905,6 +1960,9 @@
     const totalMin = data.reduce((s, r) => s + (r.work_min || 0), 0);
     const totalHrs = totalMin / 60;
     const subtotal = Math.floor(totalHrs * rate);
+
+    // 交通費の数量に稼働日数を入れる（手入力した値は上書きしない）
+    setWorkdaysQty(countWorkdays(data), { force: false });
 
     // 追加明細を収集
     const extraItems = [];
