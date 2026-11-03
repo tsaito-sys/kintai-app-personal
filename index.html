@@ -1984,10 +1984,16 @@
   }
 
   function printInvoice() {
+    const titleEl = document.querySelector('head > title');
     invOriginalTitle = document.title;
     document.title = invPdfTitle;
-    window.addEventListener('afterprint', () => { document.title = invOriginalTitle; }, { once: true });
-    window.print();
+    if (titleEl) titleEl.textContent = invPdfTitle;
+    window.addEventListener('afterprint', () => {
+      document.title = invOriginalTitle;
+      if (titleEl) titleEl.textContent = invOriginalTitle;
+    }, { once: true });
+    // タイトル変更が Chrome の印刷ダイアログ（PDFのファイル名）に反映されるよう、少し待ってから印刷する
+    setTimeout(() => window.print(), 300);
   }
 
   function buildInvoiceHTML({ invNo, client, issuer, invDate, dueDate, from, to,
