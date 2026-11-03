@@ -1889,9 +1889,7 @@
     }
     if (from > to) { showToast('期間の開始日は終了日より前にしてください', true); return; }
 
-    const win = window.open('', '_blank');
-    if (!win) { showToast('ポップアップがブロックされました。許可してください', true, 5000); return; }
-    win.document.write('<html><body style="font-family:sans-serif;padding:40px;color:#666">データを読み込み中...</body></html>');
+    openInvoiceOverlay();
 
     saveLocalInvSettings();
     saveInvProfileToSupabase();
@@ -1899,8 +1897,8 @@
     const { data, error } = await sb.from(TABLE).select('*')
       .gte('date', from).lte('date', to).order('date', { ascending: true });
 
-    if (error)             { win.close(); showToast('データ取得失敗: ' + error.message, true); return; }
-    if (!data || !data.length) { win.close(); showToast('指定期間の勤怠データがありません', true); return; }
+    if (error)             { closeInvoiceOverlay(); showToast('データ取得失敗: ' + error.message, true); return; }
+    if (!data || !data.length) { closeInvoiceOverlay(); showToast('指定期間の勤怠データがありません', true); return; }
 
     const totalMin = data.reduce((s, r) => s + (r.work_min || 0), 0);
     const totalHrs = totalMin / 60;
@@ -1926,7 +1924,7 @@
     const invNoSeq    = g('inv-invno-seq') || '001';
     const invNo       = invNoPrefix + '-' + invNoSeq;
 
-    const html = buildInvoiceHTML({
+    const inv = buildInvoiceHTML({
       invNo, client, issuer, invDate, dueDate, from, to,
       totalMin, totalHrs, rate, taxRate, mainTaxable,
       subtotal, taxableSubtotal, nonTaxableSubtotal, tax, total,
@@ -1935,10 +1933,61 @@
       bank, branch, branchNo, accountType, accountNo, accountName
     });
 
-    // about:blank への document.write だと「PDFに保存」のファイル名にタイトルが反映されないため、Blob URL で開く
-    const blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-    win.location.href = blobUrl;
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    renderInvoiceOverlay(inv);
+  }
+
+  // ─── 請求書プレビュー（メインページ上に表示して印刷） ─────────
+  // Chrome の「PDFに保存」は印刷するページ自体の document.title をファイル名に使うため、
+  // 別ウィンドウではなくメインページを印刷する。請求書以外は @media print で非表示にする。
+  // 請求書のスタイルは Shadow DOM 内に閉じ込め、メインページのスタイルと干渉させない。
+  const INV_OVERLAY_ID = 'inv-print-root';
+  const INV_OVERLAY_STYLE_ID = 'inv-print-style';
+  let invPdfTitle = '';
+  let invOriginalTitle = '';
+
+  function openInvoiceOverlay() {
+    closeInvoiceOverlay();
+    const style = document.createElement('style');
+    style.id = INV_OVERLAY_STYLE_ID;
+    style.textContent = `
+      #${INV_OVERLAY_ID}{position:fixed;inset:0;z-index:10000;background:#fff;overflow:auto}
+      body.inv-open{overflow:hidden}
+      @media print{
+        @page{size:A4;margin:0}
+        body.inv-open{margin:0;padding:0;background:#fff;overflow:visible}
+        body.inv-open > *:not(#${INV_OVERLAY_ID}){display:none!important}
+        #${INV_OVERLAY_ID}{position:static;overflow:visible}
+      }`;
+    document.head.appendChild(style);
+
+    const root = document.createElement('div');
+    root.id = INV_OVERLAY_ID;
+    root.attachShadow({ mode: 'open' }).innerHTML =
+      '<div style="font-family:sans-serif;padding:40px;color:#666">データを読み込み中...</div>';
+    document.body.appendChild(root);
+    document.body.classList.add('inv-open');
+  }
+
+  function renderInvoiceOverlay({ title, css, body }) {
+    const root = document.getElementById(INV_OVERLAY_ID);
+    if (!root) return;
+    invPdfTitle = title;
+    root.shadowRoot.innerHTML = `<style>${css}</style>${body}`;
+    root.shadowRoot.querySelectorAll('[data-act="print"]').forEach(b => b.addEventListener('click', printInvoice));
+    root.shadowRoot.querySelectorAll('[data-act="close"]').forEach(b => b.addEventListener('click', closeInvoiceOverlay));
+  }
+
+  function closeInvoiceOverlay() {
+    document.getElementById(INV_OVERLAY_ID)?.remove();
+    document.getElementById(INV_OVERLAY_STYLE_ID)?.remove();
+    document.body.classList.remove('inv-open');
+  }
+
+  function printInvoice() {
+    invOriginalTitle = document.title;
+    document.title = invPdfTitle;
+    window.addEventListener('afterprint', () => { document.title = invOriginalTitle; }, { once: true });
+    window.print();
   }
 
   function buildInvoiceHTML({ invNo, client, issuer, invDate, dueDate, from, to,
@@ -1972,19 +2021,15 @@
     const emptyCount = Math.max(0, 2 - (extraItems || []).length);
     const emptyRows = Array(emptyCount).fill('<tr><td>&nbsp;</td><td class="r"></td><td class="r"></td><td class="c"></td><td class="r"></td></tr>').join('');
 
-    return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>${h(_pdfTitle)}</title>
-<style>
+    const css = `
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Meiryo','メイリオ','Hiragino Kaku Gothic Pro',sans-serif;background:#fff;color:#333;font-size:14px;line-height:1.75;letter-spacing:0.05em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  :host{display:block;font-family:'Meiryo','メイリオ','Hiragino Kaku Gothic Pro',sans-serif;background:#fff;color:#333;font-size:14px;line-height:1.75;letter-spacing:0.05em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .toolbar{background:#2b6cb0;padding:10px 20px;display:flex;gap:10px;align-items:center}
   .toolbar button{padding:7px 18px;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer}
   .tb-pdf{background:white;color:#2b6cb0}
   .tb-print{background:#ebf8ff;color:#2b6cb0}
   .tb-label{color:rgba(255,255,255,0.8);font-size:13px;margin-left:auto}
+  .toolbar .tb-close{background:transparent;color:white;border:1px solid rgba(255,255,255,0.7)}
   #inv-outer{max-width:780px;margin:24px auto;border-top:19px solid #333;border-bottom:19px solid #333}
   #inv{padding:36px 44px}
 
@@ -2027,19 +2072,18 @@
 
   @media print{
     .toolbar{display:none!important}
-    @page{size:A4;margin:0}
-    body{margin:0;padding:0}
     #inv-outer{max-width:100%;width:100%;margin:0;border-top:19px solid #333;border-bottom:19px solid #333;height:297mm;display:flex;flex-direction:column}
     #inv{padding:6mm 16mm 10mm;flex:1;display:flex;flex-direction:column}
     .inv-notes{margin-top:auto}
   }
-</style>
-</head>
-<body>
+`;
+
+    const body = `
 <div class="toolbar">
-  <button class="tb-pdf" onclick="dlPDF()">PDFダウンロード</button>
-  <button class="tb-print" onclick="dlPDF()">印刷</button>
+  <button class="tb-pdf" data-act="print">PDFダウンロード</button>
+  <button class="tb-print" data-act="print">印刷</button>
   <span class="tb-label">請求書 ${h(invNo)}</span>
+  <button class="tb-close" data-act="close">閉じる</button>
 </div>
 
 <div id="inv-outer">
@@ -2108,18 +2152,12 @@
 </div>
 </div>
 
-<script>
-document.title = ${JSON.stringify(_pdfTitle)};
-function dlPDF() {
-  document.title = ${JSON.stringify(_pdfTitle)};
-  window.print();
-}
-<\/script>
 <div class="toolbar" style="margin-top:24px">
-  <button class="tb-pdf" onclick="dlPDF()">PDFダウンロード</button>
-  <button class="tb-print" onclick="dlPDF()">印刷</button>
-</div>
-</body></html>`;
+  <button class="tb-pdf" data-act="print">PDFダウンロード</button>
+  <button class="tb-print" data-act="print">印刷</button>
+</div>`;
+
+    return { title: _pdfTitle, css, body };
   }
 
   // ─── ユーティリティ ────────────────────────────────────────
